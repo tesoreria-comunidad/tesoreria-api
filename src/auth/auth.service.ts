@@ -1,13 +1,20 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
 import { UserService } from 'src/user/user.service';
-import { IAuthResponse } from './schemas/auth.schemas';
+import { Request } from 'express';
+import { JwtService } from '@nestjs/jwt';
 @Injectable()
 export class AuthService {
-  constructor(private readonly userService: UserService) {}
+  constructor(
+    private readonly userService: UserService,
+    private readonly jwtService: JwtService,
+  ) {}
 
   public async register(user: User) {
     const hashPassword = await bcrypt.hash(user.password, 10);
@@ -22,16 +29,14 @@ export class AuthService {
       key: 'userName',
       value: userName,
     });
-    const userByEmail = await this.userService.findBy({
-      key: 'email',
-      value: userName,
-    });
-
     if (userByUsername) {
       const match = await bcrypt.compare(password, userByUsername.password);
       if (match) return userByUsername;
     }
-
+    const userByEmail = await this.userService.findBy({
+      key: 'email',
+      value: userName,
+    });
     if (userByEmail) {
       const match = await bcrypt.compare(password, userByEmail.password);
       if (match) return userByEmail;
@@ -48,7 +53,6 @@ export class AuthService {
   }): string {
     return jwt.sign(payload, secret, { expiresIn: '7d' });
   }
-
   public async generateJWT(userData: User) {
     const user = await this.userService.getById(userData.id);
     if (!user) {
@@ -66,5 +70,22 @@ export class AuthService {
       }),
       user: payload,
     };
+  }
+  public async me(request: Request) {
+    const [type, token] = request.headers.authorization?.split(' ') ?? [];
+    if (!token) throw new UnauthorizedException();
+    try {
+      const payload = await this.jwtService.verifyAsync(token, {
+        secret: process.env.JWTKEY,
+      });
+      if (!payload) {
+        throw new NotFoundException('Tenant does not exist');
+      }
+      const user = await this.userService.getById(payload.id);
+      if (!user) throw new NotFoundException('User does not exist');
+      return user;
+    } catch (error) {
+      throw new UnauthorizedException('Token expired or invalid');
+    }
   }
 }
