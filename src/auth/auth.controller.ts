@@ -1,19 +1,25 @@
-import { Body, Controller, Post, UnauthorizedException } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Post,
+  Request,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { User } from '@prisma/client';
-
+import { UserRegisterDTO } from './dto/user-register.dto';
+import { UserLoginDTO } from './dto/user-login.dto';
+import { Request as ExpressRequest } from 'express';
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
-  async register(@Body() user: User) {
-    return this.authService.register(user);
+  async register(@Body() user: UserRegisterDTO) {
+    return this.authService.register(user as User);
   }
   @Post('login')
-  async login(
-    @Body() { userName, password }: { userName: string; password: string },
-  ) {
+  async login(@Body() { userName, password }: UserLoginDTO) {
     const userValidate = await this.authService.validateUser(
       userName,
       password,
@@ -31,5 +37,9 @@ export class AuthController {
         accessToken: jwt.accessToken,
       },
     };
+  }
+  @Post('me')
+  async me(@Request() req: ExpressRequest) {
+    return this.authService.me(req);
   }
 }
