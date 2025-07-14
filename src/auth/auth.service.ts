@@ -9,6 +9,7 @@ import * as jwt from 'jsonwebtoken';
 import { UserService } from 'src/user/user.service';
 import { Request } from 'express';
 import { JwtService } from '@nestjs/jwt';
+import { IPayloadToken } from './schemas/auth.schemas';
 @Injectable()
 export class AuthService {
   constructor(
@@ -17,7 +18,10 @@ export class AuthService {
   ) {}
 
   public async register(user: User) {
-    const hashPassword = await bcrypt.hash(user.password, 10);
+    const hashPassword = await bcrypt.hash(
+      user.password,
+      +process.env.HASH_SALT,
+    );
     const data: User = {
       ...user,
       password: hashPassword,
@@ -86,6 +90,23 @@ export class AuthService {
       return user;
     } catch (error) {
       throw new UnauthorizedException('Token expired or invalid');
+    }
+  }
+  async getDataFromToken(request: Request) {
+    const [type, token] = request.headers.authorization?.split(' ') ?? [];
+    if (!token) throw new UnauthorizedException('Invalid token');
+    try {
+      const payload: IPayloadToken = await this.jwtService.verifyAsync(token, {
+        secret: process.env.JWTKEY,
+      });
+
+      const user = await this.userService.getById(payload.id);
+      if (!user) {
+        throw new NotFoundException('Tenant is not defined');
+      }
+      return user;
+    } catch (error) {
+      throw new UnauthorizedException();
     }
   }
 }
