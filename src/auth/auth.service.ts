@@ -77,7 +77,7 @@ export class AuthService {
       if (!payload) {
         throw new NotFoundException('Tenant does not exist');
       }
-      const user = await this.userService.getById(payload.id);
+      const user = await this.userService.getById((payload as any).id);
       if (!user) throw new NotFoundException('User does not exist');
       return user;
     } catch (error) {
@@ -92,7 +92,7 @@ export class AuthService {
         secret: process.env.JWTKEY,
       });
 
-      const user = await this.userService.getById(payload.id);
+      const user = await this.userService.getById((payload as any).id);
       if (!user) {
         throw new NotFoundException('Tenant is not defined');
       }

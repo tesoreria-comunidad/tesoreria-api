@@ -15,9 +15,9 @@ datasource db {
 
 model User {
   id        String @id @default(uuid()) @db.Uuid
-  id_folder String @unique @db.Uuid
-  id_rama   String @db.Uuid
-  id_person String @unique @db.Uuid
+  id_folder String? @unique @db.Uuid 
+  id_rama   String? @db.Uuid
+  id_person String? @unique @db.Uuid 
   username  String
   password  String
   role      Role
@@ -27,7 +27,7 @@ model User {
 
   folder Folder? @relation(fields: [id_folder], references: [id])
   person Person? @relation(fields: [id_person], references: [id])
-  rama   Rama    @relation(fields: [id_rama], references: [id])
+  rama   Rama?    @relation(fields: [id_rama], references: [id])
 }
 
 model Rama {
