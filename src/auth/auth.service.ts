@@ -28,22 +28,14 @@ export class AuthService {
     };
     return await this.userService.create(data);
   }
-  public async validateUser(userName: string, password: string) {
+  public async validateUser(username: string, password: string) {
     const userByUsername = await this.userService.findBy({
-      key: 'userName',
-      value: userName,
+      key: 'username',
+      value: username,
     });
     if (userByUsername) {
       const match = await bcrypt.compare(password, userByUsername.password);
       if (match) return userByUsername;
-    }
-    const userByEmail = await this.userService.findBy({
-      key: 'email',
-      value: userName,
-    });
-    if (userByEmail) {
-      const match = await bcrypt.compare(password, userByEmail.password);
-      if (match) return userByEmail;
     }
 
     return null;
