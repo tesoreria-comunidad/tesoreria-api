@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaClient, Prisma, User } from '@prisma/client';
-import { PrismaService } from 'src/prisma.service';
+import { UpdateUserDTO } from './dto/update-user.dto';
+import { removeUndefined } from 'src/utils/remove-undefined.util';
 
 @Injectable()
 export class UserService {
@@ -24,5 +25,14 @@ export class UserService {
     value: string | number;
   }) {
     return this.prisma.user.findFirst({ where: { [key]: value } });
+  }
+
+  public async update(id: string, data: UpdateUserDTO) {
+    const cleanData = removeUndefined(data); // helper para eliminar campos undefined
+
+    return this.prisma.user.update({
+      where: { id },
+      data: cleanData,
+    });
   }
 }
