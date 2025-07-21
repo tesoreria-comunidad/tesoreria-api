@@ -6,9 +6,11 @@ import { PrismaService } from './prisma.service';
 import { AuthModule } from './auth/auth.module';
 import { AuthService } from './auth/auth.service';
 import { JwtService } from '@nestjs/jwt';
+import { PaymentsModule } from './payments/payments.module';
+import { FamilyModule } from './family/family.module';
 
 @Module({
-  imports: [UserModule, AuthModule],
+  imports: [UserModule, AuthModule, PaymentsModule, FamilyModule],
   controllers: [UserController],
   providers: [UserService, PrismaService, AuthService, JwtService],
 })
