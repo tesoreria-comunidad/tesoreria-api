@@ -6,9 +6,13 @@ import { PrismaService } from './prisma.service';
 import { AuthModule } from './auth/auth.module';
 import { AuthService } from './auth/auth.service';
 import { JwtService } from '@nestjs/jwt';
+import { RamaModule } from './rama/rama.module';
+import { FolderModule } from './folder/folder.module';
+import { CuotaModule } from './cuota/cuota.module';
+import { BalanceModule } from './balance/balance.module';
 
 @Module({
-  imports: [UserModule, AuthModule],
+  imports: [UserModule, AuthModule, RamaModule, FolderModule, CuotaModule, BalanceModule],
   controllers: [UserController],
   providers: [UserService, PrismaService, AuthService, JwtService],
 })
