@@ -11,15 +11,23 @@ export class FamilyService {
     ) { }
 
     async create(data: CreateFamilyDto) {
-        const newBalance = await this.balanceService.create({});
+        const newBalance = await this.balanceService.create({
+            cuota_balance: 0,
+            cfa_balance: 0,
+            custom_balance: 0,
+            is_custom_cuota: false,
+            is_custom_cfa: false,
+        });
 
-        return this.prisma.family.create({
+        const newFamily = this.prisma.family.create({
             data: {
                 id_balance: newBalance.id,
                 name: data.name,
                 phone: data.phone,
             },
         });
+
+        return newFamily
     }
 
     async findAll() {

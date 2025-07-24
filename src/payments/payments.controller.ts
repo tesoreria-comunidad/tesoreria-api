@@ -1,14 +1,29 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, NotFoundException } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { CreatePaymentDto, UpdatePaymentDto } from './dto/payments.dto';
+import { FamilyService } from 'src/family/family.service';
+import { NOTFOUND } from 'dns';
 
 @Controller('payments')
 export class PaymentsController {
-    constructor(private readonly paymentsService: PaymentsService) { }
+    constructor(private readonly paymentsService: PaymentsService,
+        private readonly familyService: FamilyService
+    ) { }
 
     @Post()
-    create(@Body() createPaymentDto: CreatePaymentDto) {
-        return this.paymentsService.create(createPaymentDto);
+    async create(@Body() createPaymentDto: CreatePaymentDto) {
+
+        try {
+            const family = await this.familyService.findOne(createPaymentDto.id_family)
+
+            if (!family) {
+                throw new NotFoundException('family not found')
+            }
+
+            return this.paymentsService.create(createPaymentDto);
+        } catch (error) {
+            throw error
+        }
     }
 
     @Get()

@@ -1,11 +1,30 @@
+import { IsNotEmpty, IsNumber, IsBoolean, IsOptional, IsString, IsEnum } from 'class-validator';
+
+
 export class CreateFamilyDto {
-    readonly id_balance: string;
-    readonly name: string;
-    readonly phone: string;
+    @IsString()
+    @IsNotEmpty()
+    id_balance: string;
+
+    @IsString()
+    @IsNotEmpty()
+    name: string;
+
+    @IsString()
+    @IsNotEmpty()
+    phone: string;
 }
 
 export class UpdateFamilyDto {
-    readonly id_balance?: string;
-    readonly name?: string;
-    readonly phone?: string;
+    @IsString()
+    @IsNotEmpty()
+    id_balance?: string;
+
+    @IsString()
+    @IsNotEmpty()
+    name?: string;
+
+    @IsString()
+    @IsNotEmpty()
+    phone?: string;
 }

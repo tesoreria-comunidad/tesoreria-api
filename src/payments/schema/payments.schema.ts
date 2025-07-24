@@ -1,7 +1,7 @@
 export class Payment {
     id: string;
     amount: number;
-    familyId?: string;
+    id_family?: string;
     payment_method: 'EFECTIVO' | 'TRANSFERENCIA';
     payment_type: 'CUOTA' | 'CFA';
 }

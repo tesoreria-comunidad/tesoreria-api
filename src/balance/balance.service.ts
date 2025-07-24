@@ -15,7 +15,7 @@ export class BalanceService {
   }
 
   public async getById(id: string) {
-    return await this.prisma.balance.findFirst({ 
+    return await this.prisma.balance.findFirst({
       where: { id },
       include: {
         family: true,
@@ -24,7 +24,7 @@ export class BalanceService {
   }
 
   public async create(data: CreateBalanceDTO) {
-    return this.prisma.balance.create({ 
+    return this.prisma.balance.create({
       data,
       include: {
         family: true,
