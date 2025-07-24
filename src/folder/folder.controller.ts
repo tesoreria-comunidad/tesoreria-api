@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Patch, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { FolderService } from './folder.service';
 import { CreateFolderDTO, UpdateFolderDTO } from './dto/folder.dto';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
@@ -9,39 +9,33 @@ export class FolderController {
   constructor(private readonly folderService: FolderService) {}
 
   @Get()
+  @HttpCode(HttpStatus.OK)
   async getAllFolders() {
     return await this.folderService.getAllFolder();
   }
 
   @Get(':id')
+  @HttpCode(HttpStatus.OK)
   async getFolderById(@Param('id') id: string) {
     return await this.folderService.getById(id);
   }
 
   @Post()
+  @HttpCode(HttpStatus.CREATED)
   async create(@Body() body: CreateFolderDTO) {
-    try {
-      return await this.folderService.create(body);
-    } catch (error) {
-      throw error;
-    }
+    return await this.folderService.create(body);
   }
 
-  @Put(':id')
+  @Patch(':id')
+  @HttpCode(HttpStatus.OK)
   async update(@Param('id') id: string, @Body() body: UpdateFolderDTO) {
-    try {
-      return await this.folderService.update(id, body);
-    } catch (error) {
-      throw error;
-    }
+    return await this.folderService.update(id, body);
   }
 
   @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Param('id') id: string) {
-    try {
-      return await this.folderService.delete(id);
-    } catch (error) {
-      throw error;
-    }
+    await this.folderService.delete(id);
+    return;
   }
 }
