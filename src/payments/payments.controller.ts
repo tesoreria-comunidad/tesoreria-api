@@ -1,9 +1,11 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, NotFoundException } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Patch, UseGuards, HttpCode, HttpStatus, NotFoundException } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { CreatePaymentDto, UpdatePaymentDto } from './dto/payments.dto';
 import { FamilyService } from 'src/family/family.service';
 import { NOTFOUND } from 'dns';
+import { AuthGuard } from 'src/auth/guards/auth.guard';
 
+@UseGuards(AuthGuard)
 @Controller('payments')
 export class PaymentsController {
     constructor(private readonly paymentsService: PaymentsService,
@@ -11,6 +13,7 @@ export class PaymentsController {
     ) { }
 
     @Post()
+    @HttpCode(HttpStatus.CREATED)
     async create(@Body() createPaymentDto: CreatePaymentDto) {
 
         try {
@@ -27,21 +30,25 @@ export class PaymentsController {
     }
 
     @Get()
+    @HttpCode(HttpStatus.OK)
     findAll() {
         return this.paymentsService.findAll();
     }
 
     @Get(':id')
+    @HttpCode(HttpStatus.OK)
     findOne(@Param('id') id: string) {
         return this.paymentsService.findOne(id);
     }
 
     @Patch(':id')
+    @HttpCode(HttpStatus.OK)
     update(@Param('id') id: string, @Body() updatePaymentDto: UpdatePaymentDto) {
         return this.paymentsService.update(id, updatePaymentDto);
     }
 
     @Delete(':id')
+    @HttpCode(HttpStatus.NO_CONTENT)
     remove(@Param('id') id: string) {
         return this.paymentsService.remove(id);
     }

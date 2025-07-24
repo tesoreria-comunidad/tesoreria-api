@@ -4,9 +4,14 @@ import { PaymentsController } from './payments.controller';
 import { PrismaService } from 'src/prisma.service';
 import { FamilyService } from 'src/family/family.service';
 import { BalanceService } from 'src/balance/balance.service';
+import { AuthService } from 'src/auth/auth.service';
+import { JwtService } from '@nestjs/jwt';
+import { UserService } from 'src/user/user.service';
+import { Prisma } from '@prisma/client';
 
 @Module({
   controllers: [PaymentsController],
-  providers: [PaymentsService, PrismaService, FamilyService, BalanceService],
+  providers: [UserService, PaymentsService, PrismaService, AuthService, JwtService, FamilyService, BalanceService],
+  exports: [PaymentsService]
 })
 export class PaymentsModule { }
