@@ -3,8 +3,8 @@ import { IsNotEmpty, IsNumber, IsBoolean, IsOptional, IsString, IsEnum } from 'c
 
 export class CreateFamilyDto {
     @IsString()
-    @IsNotEmpty()
-    id_balance: string;
+    @IsOptional()
+    id_balance?: string;
 
     @IsString()
     @IsNotEmpty()
@@ -17,7 +17,7 @@ export class CreateFamilyDto {
 
 export class UpdateFamilyDto {
     @IsString()
-    @IsNotEmpty()
+    @IsOptional()
     id_balance?: string;
 
     @IsString()
