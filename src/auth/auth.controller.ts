@@ -7,7 +7,6 @@ import {
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { User } from '@prisma/client';
-import { UserRegisterDTO } from './dto/user-register.dto';
 import { UserLoginDTO } from './dto/user-login.dto';
 import { Request as ExpressRequest } from 'express';
 @Controller('auth')
@@ -19,9 +18,9 @@ export class AuthController {
     return this.authService.register(user as User);
   }
   @Post('login')
-  async login(@Body() { userName, password }: UserLoginDTO) {
+  async login(@Body() { username, password }: UserLoginDTO) {
     const userValidate = await this.authService.validateUser(
-      userName,
+      username,
       password,
     );
 

@@ -2,8 +2,18 @@ import { Module } from '@nestjs/common';
 import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
 import { PersonModule } from './person/person.module';
+import { AuthService } from './auth/auth.service';
+import { JwtService } from '@nestjs/jwt';
+import { PaymentsModule } from './payments/payments.module';
+import { FamilyModule } from './family/family.module';
+import { RamaModule } from './rama/rama.module';
+import { FolderModule } from './folder/folder.module';
+import { CuotaModule } from './cuota/cuota.module';
+import { BalanceModule } from './balance/balance.module';
 
 @Module({
-  imports: [UserModule, AuthModule, PersonModule],
+  imports: [UserModule, AuthModule, RamaModule, FolderModule, CuotaModule, BalanceModule, PaymentsModule, FamilyModule, PersonModule],
+  controllers: [UserController],
+  providers: [UserService, PrismaService, AuthService, JwtService],
 })
-export class AppModule {}
+export class AppModule { }

@@ -7,7 +7,7 @@ const envZodModel = z.object({
   HASH_SALT: z.string(),
 });
 
-envZodModel.parse(process.env);
+//envZodModel.parse(process.env);
 
 type EnvType = z.infer<typeof envZodModel>;
 declare global {
