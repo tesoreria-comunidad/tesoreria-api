@@ -14,26 +14,25 @@ datasource db {
 }
 
 model User {
-  id        String @id @default(uuid()) @db.Uuid
-  id_folder String? @unique @db.Uuid 
+  id        String  @id @default(uuid()) @db.Uuid
+  id_folder String? @unique @db.Uuid
   id_rama   String? @db.Uuid
   id_person String? @unique @db.Uuid
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  username  String
-  password  String
-  role      Role
-
+  username String
+  password String
+  role     Role
 
   folder Folder? @relation(fields: [id_folder], references: [id])
   person Person? @relation(fields: [id_person], references: [id])
-  rama   Rama?    @relation(fields: [id_rama], references: [id])
+  rama   Rama?   @relation(fields: [id_rama], references: [id])
 }
 
 model Rama {
-  id    String @id @default(uuid()) @db.Uuid
+  id String @id @default(uuid()) @db.Uuid
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -43,10 +42,10 @@ model Rama {
 }
 
 model Folder {
-  id               String   @id @default(uuid()) @db.Uuid
+  id String @id @default(uuid()) @db.Uuid
 
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   historia_clinica String?
   foto             String?
@@ -90,25 +89,25 @@ model Family {
 }
 
 model Payment {
-  id       String  @id @default(uuid()) @db.Uuid
-  familyId String? @db.Uuid
+  id        String @id @default(uuid()) @db.Uuid
+  id_family String @db.Uuid
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  amount   Float
+  amount Float
 
   payment_method PaymentMethod
   payment_type   PaymentType
 
-  Family Family? @relation(fields: [familyId], references: [id])
+  Family Family @relation(fields: [id_family], references: [id])
 }
 
 model Balance {
   id String @id @default(uuid()) @db.Uuid
 
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @default(now())
 
   cuota_balance  Float
   cfa_balance    Float

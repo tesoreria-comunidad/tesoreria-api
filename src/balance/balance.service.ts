@@ -24,7 +24,7 @@ export class BalanceService {
         throw new BadRequestException('ID es requerido');
       }
 
-      const balance = await this.prisma.balance.findFirst({ 
+      const balance = await this.prisma.balance.findFirst({
         where: { id },
         include: {
           family: true,
@@ -46,7 +46,7 @@ export class BalanceService {
 
   public async create(data: CreateBalanceDTO) {
     try {
-      return await this.prisma.balance.create({ 
+      return await this.prisma.balance.create({
         data,
         include: {
           family: true,
