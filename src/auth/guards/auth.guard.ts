@@ -1,8 +1,13 @@
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import { UserService } from 'src/user/user.service';
 import { AuthService } from '../auth.service';
+import { User } from '@prisma/client';
+
+interface RequestWithUser extends Request {
+  user?: User;
+}
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -12,12 +17,18 @@ export class AuthGuard implements CanActivate {
     private readonly authServices: AuthService,
   ) {}
   async canActivate(context: ExecutionContext) {
-    const req = context.switchToHttp().getRequest<Request>();
+    try {
+      const req = context.switchToHttp().getRequest<RequestWithUser>();
 
-    const token = await this.authServices.getDataFromToken(req);
-    if (!token) {
-      return false;
+      const token = await this.authServices.getDataFromToken(req);
+      if (!token) {
+        throw new UnauthorizedException('Invalid token');
+      }
+      
+      req.user = token;
+      return true;
+    } catch (error) {
+      throw new UnauthorizedException('Invalid token');
     }
-    return true;
   }
 }
