@@ -1,13 +1,14 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Patch, 
-  Delete, 
-  Param, 
-  Body, 
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  Body,
   UseGuards,
-  NotFoundException
+  NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PersonService } from './person.service';
 import { AuthGuard } from '../auth/guards/auth.guard';
@@ -63,5 +64,32 @@ export class PersonController {
   @Get('dni/:dni')
   async getPersonByDni(@Param('dni') dni: string) {
     return await this.personService.findByDni(dni);
+  }
+
+  @Post('bulk')
+  async bulkCreatePersons(@Body() persons: CreatePersonDTO[]) {
+    if (!Array.isArray(persons) || persons.length === 0) {
+      throw new BadRequestException('Debe proporcionar una lista de usuarios');
+    }
+    const dniSet = new Set<string>();
+    for (const person of persons) {
+      if (dniSet.has(person.dni)) {
+        throw new BadRequestException(
+          `DNI duplicado encontrado: ${person.dni}`,
+        );
+      }
+      dniSet.add(person.dni);
+    }
+
+    const emailSet = new Set<string>();
+    for (const person of persons) {
+      if (emailSet.has(person.email)) {
+        throw new BadRequestException(
+          `Email duplicado encontrado: ${person.email}`,
+        );
+      }
+      emailSet.add(person.email);
+    }
+    return await this.personService.bulkCreate(persons);
   }
 }
