@@ -15,8 +15,7 @@ import { UserService } from 'src/user/user.service';
     UserService,
     AuthService,
     PrismaService,
-    JwtService
+    JwtService,
   ],
 })
-export class FamilyModule { }
-
+export class FamilyModule {}

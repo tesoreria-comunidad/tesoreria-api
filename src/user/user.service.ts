@@ -1,21 +1,44 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaClient, Prisma, User } from '@prisma/client';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
+import { User } from '@prisma/client';
+import { UpdateUserDTO, CreateUserDTO } from './dto/user.dto';
+import { removeUndefined } from 'src/utils/remove-undefined.util';
 import { PrismaService } from 'src/prisma.service';
 
 @Injectable()
 export class UserService {
-  // constructor(private prisma: PrismaService) { };
-  private prisma = new PrismaClient();
+  constructor(private prisma: PrismaService) {}
 
   public async getAllUser() {
     return this.prisma.user.findMany();
   }
+
   public async getById(id: string) {
-    return await this.prisma.user.findFirst({ where: { id } });
+    try {
+      if (!id) throw new BadRequestException('ID es requerido');
+      const user = await this.prisma.user.findFirst({ where: { id } });
+      if (!user)
+        throw new NotFoundException(`Usuaro con ID ${id} no encontrado`);
+      return user;
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Error al obtener un usuario');
+    }
   }
-  public async create(data: User) {
+
+  public async create(data: CreateUserDTO | User) {
     return this.prisma.user.create({ data });
   }
+
   public async findBy({
     key,
     value,
@@ -24,5 +47,31 @@ export class UserService {
     value: string | number;
   }) {
     return this.prisma.user.findFirst({ where: { [key]: value } });
+  }
+
+  public async update(id: string, data: UpdateUserDTO) {
+    try {
+      if (!id) throw new BadRequestException('ID es requerido');
+      const cleanData = removeUndefined(data); // helper para eliminar campos undefined
+      await this.getById(id);
+      return await this.prisma.user.update({
+        where: { id },
+        data: cleanData,
+      });
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Error al actualizar un usuario');
+    }
+  }
+
+  public async delete(id: string) {
+    return this.prisma.user.delete({
+      where: { id },
+    });
   }
 }
