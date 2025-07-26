@@ -1,4 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { User } from '@prisma/client';
 import { UpdateUserDTO, CreateUserDTO } from './dto/user.dto';
 import { removeUndefined } from 'src/utils/remove-undefined.util';
@@ -13,7 +18,21 @@ export class UserService {
   }
 
   public async getById(id: string) {
-    return await this.prisma.user.findFirst({ where: { id } });
+    try {
+      if (!id) throw new BadRequestException('ID es requerido');
+      const user = await this.prisma.user.findFirst({ where: { id } });
+      if (!user)
+        throw new NotFoundException(`Usuaro con ID ${id} no encontrado`);
+      return user;
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Error al obtener un usuario');
+    }
   }
 
   public async create(data: CreateUserDTO | User) {
@@ -31,12 +50,23 @@ export class UserService {
   }
 
   public async update(id: string, data: UpdateUserDTO) {
-    const cleanData = removeUndefined(data); // helper para eliminar campos undefined
-
-    return this.prisma.user.update({
-      where: { id },
-      data: cleanData,
-    });
+    try {
+      if (!id) throw new BadRequestException('ID es requerido');
+      const cleanData = removeUndefined(data); // helper para eliminar campos undefined
+      await this.getById(id);
+      return await this.prisma.user.update({
+        where: { id },
+        data: cleanData,
+      });
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Error al actualizar un usuario');
+    }
   }
 
   public async delete(id: string) {

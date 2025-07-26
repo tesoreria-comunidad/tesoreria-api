@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Post, Patch, Delete, Param, UseGuards, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  UseGuards,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { UserService } from './user.service';
 import { UpdateUserDTO, CreateUserDTO } from './dto/user.dto';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
@@ -25,17 +36,7 @@ export class UserController {
 
   @Patch(':id')
   async update(@Param('id') id: string, @Body() body: UpdateUserDTO) {
-    try {
-      const existingUser = await this.userService.getById(id);
-      if (!existingUser) {
-        throw new NotFoundException('Usuario no encontrado');
-      }
-
-      const updatedUser = await this.userService.update(id, body);
-      return updatedUser;
-    } catch (error) {
-      throw error;
-    }
+    return await this.userService.update(id, body);
   }
 
   @Delete(':id')
