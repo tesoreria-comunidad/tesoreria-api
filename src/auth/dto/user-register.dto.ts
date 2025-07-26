@@ -1,18 +1,27 @@
-import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsString, IsUUID, IsOptional } from 'class-validator';
 
 export class UserRegisterDTO {
   @IsString()
   @IsNotEmpty()
-  userName: string;
+  username: string;
 
   @IsString()
   @IsNotEmpty()
   password: string;
 
-  @IsEmail()
-  email: string;
-
   @IsString()
   @IsNotEmpty()
   role: string;
+
+  @IsUUID()
+  @IsOptional()
+  id_folder?: string;
+
+  @IsUUID()
+  @IsOptional()
+  id_rama?: string;
+
+  @IsUUID()
+  @IsOptional()
+  id_person?: string;
 }
