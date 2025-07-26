@@ -12,7 +12,9 @@
     "baseUrl": "./",
     "incremental": true,
     "skipLibCheck": true,
+    "strict": true,                           // ✅ Agregá esto
     "strictNullChecks": true,
+    "strictPropertyInitialization": false,   // ✅ Esto ayuda a evitar errores con DTOs generados
     "forceConsistentCasingInFileNames": true,
     "noImplicitAny": false,
     "strictBindCallApply": false,
