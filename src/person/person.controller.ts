@@ -2,11 +2,12 @@ import {
   Controller, 
   Get, 
   Post, 
-  Put, 
+  Patch, 
   Delete, 
   Param, 
   Body, 
-  UseGuards 
+  UseGuards,
+  NotFoundException
 } from '@nestjs/common';
 import { PersonService } from './person.service';
 import { AuthGuard } from '../auth/guards/auth.guard';
@@ -33,22 +34,30 @@ export class PersonController {
     return await this.personService.create(body);
   }
 
-  @Put(':id')
+  @Patch(':id')
   async updatePerson(@Param('id') id: string, @Body() body: UpdatePersonDTO) {
-    const existingPerson = await this.personService.getById(id);
-    if (!existingPerson) {
-      throw new Error('Persona no encontrada');
+    try {
+      const existingPerson = await this.personService.getById(id);
+      if (!existingPerson) {
+        throw new NotFoundException('Persona no encontrada');
+      }
+      return await this.personService.update(id, body);
+    } catch (error) {
+      throw error;
     }
-    return await this.personService.update(id, body);
   }
 
   @Delete(':id')
   async deletePerson(@Param('id') id: string) {
-    const existingPerson = await this.personService.getById(id);
-    if (!existingPerson) {
-      throw new Error('Persona no encontrada');
+    try {
+      const existingPerson = await this.personService.getById(id);
+      if (!existingPerson) {
+        throw new NotFoundException('Persona no encontrada');
+      }
+      return await this.personService.delete(id);
+    } catch (error) {
+      throw error;
     }
-    return await this.personService.delete(id);
   }
 
   @Get('dni/:dni')

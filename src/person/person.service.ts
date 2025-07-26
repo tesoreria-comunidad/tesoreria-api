@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { Person, Prisma } from '@prisma/client';
+import { Person } from '@prisma/client';
+import { CreatePersonDTO } from './dto/create-person.dto';
+import { UpdatePersonDTO } from './dto/update-person.dto';
+import { removeUndefined } from '../utils/remove-undefined.util';
 
 @Injectable()
 export class PersonService {
@@ -25,7 +28,7 @@ export class PersonService {
     });
   }
 
-  async create(data: Prisma.PersonCreateInput): Promise<Person> {
+  async create(data: CreatePersonDTO): Promise<Person> {
     return this.prisma.person.create({
       data,
       include: {
@@ -35,10 +38,11 @@ export class PersonService {
     });
   }
 
-  async update(id: string, data: Prisma.PersonUpdateInput): Promise<Person> {
+  async update(id: string, data: UpdatePersonDTO): Promise<Person> {
+    const cleanData = removeUndefined(data);
     return this.prisma.person.update({
       where: { id },
-      data,
+      data: cleanData,
       include: {
         user: true,
         family: true,

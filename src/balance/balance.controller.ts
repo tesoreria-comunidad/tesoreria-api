@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Patch, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { BalanceService } from './balance.service';
 import { CreateBalanceDTO, UpdateBalanceDTO } from './dto/balance.dto';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
@@ -9,31 +9,33 @@ export class BalanceController {
   constructor(private readonly balanceService: BalanceService) {}
 
   @Get()
+  @HttpCode(HttpStatus.OK)
   async getAllBalances() {
     return await this.balanceService.getAllBalances();
   }
 
   @Get(':id')
+  @HttpCode(HttpStatus.OK)
   async getBalanceById(@Param('id') id: string) {
     return await this.balanceService.getById(id);
   }
 
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  async create(@Body() body: CreateBalanceDTO) {
+    return await this.balanceService.create(body);
+  }
 
-  @Put(':id')
+  @Patch(':id')
+  @HttpCode(HttpStatus.OK)
   async update(@Param('id') id: string, @Body() body: UpdateBalanceDTO) {
-    try {
-      return await this.balanceService.update(id, body);
-    } catch (error) {
-      throw error;
-    }
+    return await this.balanceService.update(id, body);
   }
 
   @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Param('id') id: string) {
-    try {
-      return await this.balanceService.delete(id);
-    } catch (error) {
-      throw error;
-    }
+    await this.balanceService.delete(id);
+    return;
   }
 }
