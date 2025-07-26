@@ -1,4 +1,11 @@
-import { IsString, IsEmail, IsNotEmpty, IsEnum, IsUUID, IsOptional } from 'class-validator';
+import {
+  IsString,
+  IsEmail,
+  IsNotEmpty,
+  IsEnum,
+  IsUUID,
+  IsOptional,
+} from 'class-validator';
 import { Gender } from '@prisma/client';
 
 export class CreatePersonDTO {
@@ -30,7 +37,7 @@ export class CreatePersonDTO {
   @IsNotEmpty()
   dni: string;
 
-  @IsUUID()
-  @IsNotEmpty()
-  id_family: string;
+  @IsUUID('4')
+  @IsOptional()
+  id_family?: string;
 }

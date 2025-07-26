@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { Person } from '@prisma/client';
 import { CreatePersonDTO } from './dto/create-person.dto';
@@ -64,5 +68,44 @@ export class PersonService {
         family: true,
       },
     });
+  }
+
+  async bulkCreate(persons: CreatePersonDTO[]): Promise<Person[]> {
+    try {
+      const existing = await this.prisma.person.findMany({
+        where: {
+          OR: [
+            { email: { in: persons.map((p) => p.email) } },
+            { dni: { in: persons.map((p) => p.dni) } },
+          ],
+        },
+        select: { email: true, dni: true },
+      });
+
+      if (existing.length > 0) {
+        throw new BadRequestException(
+          `Ya existen personas con los siguientes emails o DNIs: ${existing
+            .map((e) => [e.email, e.dni].filter(Boolean).join(' / '))
+            .join(', ')}`,
+        );
+      }
+      await this.prisma.person.createMany({
+        data: persons,
+        skipDuplicates: true,
+      });
+
+      // Fetch and return the created persons with relations
+      return this.prisma.person.findMany({
+        include: {
+          user: true,
+          family: true,
+        },
+      });
+    } catch (error) {
+      console.log('error at persons bulk create', error);
+      throw new InternalServerErrorException(
+        `Error in persons bulkCreate: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 }

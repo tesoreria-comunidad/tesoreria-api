@@ -52,4 +52,18 @@ export class UserController {
       throw error;
     }
   }
+
+  @Post('bulk')
+  async bulkCreateUsers(@Body() users: CreateUserDTO[]) {
+    const usernames = users.map((user) => user.username);
+    const duplicates = usernames.filter(
+      (username, index) => usernames.indexOf(username) !== index,
+    );
+    if (duplicates.length > 0) {
+      throw new BadRequestException(
+        `Usuarios duplicados con username: ${[...new Set(duplicates)].join(', ')}`,
+      );
+    }
+    return await this.userService.bulkCreate(users);
+  }
 }

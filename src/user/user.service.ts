@@ -14,7 +14,13 @@ export class UserService {
   constructor(private prisma: PrismaService) {}
 
   public async getAllUser() {
-    return this.prisma.user.findMany();
+    return this.prisma.user.findMany({
+      include: {
+        person: true,
+        folder: true,
+        rama: true,
+      },
+    });
   }
 
   public async getById(id: string) {
@@ -73,5 +79,37 @@ export class UserService {
     return this.prisma.user.delete({
       where: { id },
     });
+  }
+
+  public async bulkCreate(users: CreateUserDTO[]) {
+    if (!Array.isArray(users) || users.length === 0) {
+      throw new BadRequestException('Debe proporcionar una lista de usuarios');
+    }
+
+    // Obtener los usernames de los usuarios a crear
+    const usernames = users.map((u) => u.username);
+
+    // Buscar si ya existen usuarios con esos usernames
+    const existingUsers = await this.prisma.user.findMany({
+      where: { username: { in: usernames } },
+      select: { username: true },
+    });
+
+    if (existingUsers.length > 0) {
+      const existingUsernames = existingUsers.map((u) => u.username);
+      throw new BadRequestException(
+        `Ya existen usuarios con los siguientes usernames: ${existingUsernames.join(', ')}`,
+      );
+    }
+
+    try {
+      return await this.prisma.user.createMany({
+        data: users,
+        skipDuplicates: true,
+      });
+    } catch (error) {
+      console.log(error);
+      throw new InternalServerErrorException('Error al crear usuarios en lote');
+    }
   }
 }
