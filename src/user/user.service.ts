@@ -26,7 +26,10 @@ export class UserService {
   public async getById(id: string) {
     try {
       if (!id) throw new BadRequestException('ID es requerido');
-      const user = await this.prisma.user.findFirst({ where: { id } });
+      const user = await this.prisma.user.findFirst({
+        where: { id },
+        include: { person: true, rama: true },
+      });
       if (!user)
         throw new NotFoundException(`Usuaro con ID ${id} no encontrado`);
       return user;
