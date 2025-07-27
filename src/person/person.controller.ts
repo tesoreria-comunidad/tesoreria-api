@@ -9,6 +9,7 @@ import {
   UseGuards,
   NotFoundException,
   BadRequestException,
+  Query,
 } from '@nestjs/common';
 import { PersonService } from './person.service';
 import { AuthGuard } from '../auth/guards/auth.guard';
@@ -67,7 +68,12 @@ export class PersonController {
   }
 
   @Post('bulk')
-  async bulkCreatePersons(@Body() persons: CreatePersonDTO[]) {
+  async bulkCreatePersons(
+    @Body() body: { persons: CreatePersonDTO[] },
+    @Query() query: { id_rama?: string },
+  ) {
+    const { id_rama } = query;
+    const { persons } = body;
     if (!Array.isArray(persons) || persons.length === 0) {
       throw new BadRequestException('Debe proporcionar una lista de usuarios');
     }
@@ -90,6 +96,6 @@ export class PersonController {
       }
       emailSet.add(person.email);
     }
-    return await this.personService.bulkCreate(persons);
+    return await this.personService.bulkCreate({ persons, id_rama });
   }
 }
