@@ -8,7 +8,7 @@ import { User } from '@prisma/client';
 import { UpdateUserDTO, CreateUserDTO } from './dto/user.dto';
 import { removeUndefined } from 'src/utils/remove-undefined.util';
 import { PrismaService } from 'src/prisma.service';
-
+import * as bcrypt from 'bcrypt';
 @Injectable()
 export class UserService {
   constructor(private prisma: PrismaService) {}
@@ -26,7 +26,10 @@ export class UserService {
   public async getById(id: string) {
     try {
       if (!id) throw new BadRequestException('ID es requerido');
-      const user = await this.prisma.user.findFirst({ where: { id } });
+      const user = await this.prisma.user.findFirst({
+        where: { id },
+        include: { person: true, rama: true },
+      });
       if (!user)
         throw new NotFoundException(`Usuaro con ID ${id} no encontrado`);
       return user;
@@ -102,9 +105,15 @@ export class UserService {
       );
     }
 
+    const usersWithHashedPasswords = await Promise.all(
+      users.map(async (user) => ({
+        ...user,
+        password: await bcrypt.hash(user.password, +process.env.HASH_SALT),
+      })),
+    );
     try {
       return await this.prisma.user.createMany({
-        data: users,
+        data: usersWithHashedPasswords,
         skipDuplicates: true,
       });
     } catch (error) {
