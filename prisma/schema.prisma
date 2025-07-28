@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -14,52 +8,52 @@ datasource db {
 }
 
 model User {
-  id        String  @id @default(uuid()) @db.Uuid
-  id_folder String? @unique @db.Uuid
-  id_rama   String? @db.Uuid
-  id_person String? @unique @db.Uuid
-
+  id        String   @id @default(uuid()) @db.Uuid
+  id_folder String?  @unique @db.Uuid
+  id_rama   String?  @db.Uuid
+  id_family String?  @unique @db.Uuid
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  username String
-  password String
-  role     Role
-
-  folder Folder? @relation(fields: [id_folder], references: [id])
-  person Person? @relation(fields: [id_person], references: [id])
-  rama   Rama?   @relation(fields: [id_rama], references: [id])
+  username  String
+  password  String
+  email     String  @unique
+  name    String
+  last_name String
+  birthdate DateTime
+  citizenship String
+  address   String
+  phone     String
+  gender    Gender
+  dni       String
+  is_granted   Boolean @default(false)
+  isctive  Boolean @default(true)
+  role      Role
+  folder    Folder?  @relation(fields: [id_folder], references: [id])
+  rama      Rama?    @relation(fields: [id_rama], references: [id])
+  family    Family?  @relation(fields: [id_family], references: [id])
 }
 
 model Rama {
-  id String @id @default(uuid()) @db.Uuid
-
+  id        String   @id @default(uuid()) @db.Uuid
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  name  String
-  users User[]
+  name      String
+  users     User[]
 }
 
 model Folder {
-  id String @id @default(uuid()) @db.Uuid
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
+  id               String   @id @default(uuid()) @db.Uuid
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
   historia_clinica String?
   foto             String?
-
-  user User?
+  user             User?
 }
 
 model Person {
-  id        String  @id @default(uuid()) @db.Uuid
-  id_family String? @unique @db.Uuid
-
+  id        String   @id @default(uuid()) @db.Uuid
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
   name      String
   last_name String
   address   String
@@ -67,66 +61,50 @@ model Person {
   email     String
   gender    Gender
   dni       String
-
-  user User?
-
-  family Family? @relation(fields: [id_family], references: [id])
 }
 
 model Family {
-  id         String @id @default(uuid()) @db.Uuid
-  id_balance String @unique @db.Uuid
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  name     String
-  phone    String
-  persons  Person[]
-  payments Payment[]
-
-  balance Balance @relation(fields: [id_balance], references: [id])
+  id         String    @id @default(uuid()) @db.Uuid
+  id_balance String    @unique @db.Uuid
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  name       String
+  phone      String
+  balance    Balance   @relation(fields: [id_balance], references: [id])
+  payments   Payment[]
+  users    User?
 }
 
 model Payment {
-  id        String @id @default(uuid()) @db.Uuid
-  id_family String @db.Uuid
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  amount Float
-
+  id             String        @id @default(uuid()) @db.Uuid
+  id_family      String        @db.Uuid
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  amount         Float
   payment_method PaymentMethod
   payment_type   PaymentType
-
-  Family Family @relation(fields: [id_family], references: [id])
+  Family         Family        @relation(fields: [id_family], references: [id])
 }
 
 model Balance {
-  id String @id @default(uuid()) @db.Uuid
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now())
-
-  cuota_balance  Float
-  cfa_balance    Float
-  custom_balance Float
-
+  id              String   @id @default(uuid()) @db.Uuid
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now())
+  cuota_balance   Float
+  cfa_balance     Float
+  custom_balance  Float
   is_custom_cuota Boolean
   is_custom_cfa   Boolean
-
-  family Family?
+  family          Family?
 }
 
 model Cuota {
-  id String @id @default(uuid()) @db.Uuid
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
+  id           String   @id @default(uuid()) @db.Uuid
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
   cuota_amount Float
   cfa_amount   Float
+  is_active    Boolean @default(true)
 }
 
 enum PaymentType {
