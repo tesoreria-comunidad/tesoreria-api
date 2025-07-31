@@ -8,6 +8,7 @@ datasource db {
 }
 
 model User {
+
   id          String   @id @default(uuid()) @db.Uuid
   id_folder   String?  @unique @db.Uuid
   id_rama     String?  @db.Uuid
@@ -31,6 +32,7 @@ model User {
   Family      Family?  @relation(fields: [id_family], references: [id])
   folder      Folder?  @relation(fields: [id_folder], references: [id])
   rama        Rama?    @relation(fields: [id_rama], references: [id])
+  
 }
 
 model Rama {
@@ -72,7 +74,8 @@ model Family {
   phone      String
   balance    Balance   @relation(fields: [id_balance], references: [id])
   payments   Payment[]
-  User       User?
+  users    User[]
+
 }
 
 model Payment {
@@ -105,6 +108,7 @@ model Cuota {
   cuota_amount Float
   cfa_amount   Float
   is_active    Boolean  @default(true)
+
 }
 
 enum PaymentType {
