@@ -30,7 +30,7 @@ export class UserService {
         include: { rama: true },
       });
       if (!user)
-        throw new NotFoundException(`Usuaro con ID ${id} no encontrado`);
+        throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
       return user;
     } catch (error) {
       if (

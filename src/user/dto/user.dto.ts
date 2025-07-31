@@ -65,17 +65,17 @@ export class CreateUserDTO {
 }
 
 export class UpdateUserDTO {
-  @IsOptional()
   @IsString()
-  username?: string;
+  @IsNotEmpty()
+  username: string;
 
-  @IsOptional()
   @IsString()
-  password?: string;
+  @IsNotEmpty()
+  password: string;
 
-  @IsOptional()
   @IsEnum(Role)
-  role?: Role;
+  @IsNotEmpty()
+  role: Role;
 
   @IsOptional()
   @IsUUID()
@@ -84,6 +84,46 @@ export class UpdateUserDTO {
   @IsOptional()
   @IsUUID()
   id_rama?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+  
+  @IsString()
+  @IsNotEmpty()
+  last_name: string;
+  
+  @IsString()
+  @IsNotEmpty()
+  address: string;
+  
+  @IsString()
+  @IsNotEmpty()
+  phone: string;
+  
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+  
+  @IsEnum(Gender)
+  @IsNotEmpty()
+  gender: Gender;
+  
+  @IsString()
+  @IsNotEmpty()
+  dni: string;
+  
+  @IsUUID('4')
+  @IsOptional()
+  id_family?: string;
+
+  @IsDate()
+  @IsNotEmpty()
+  birthdate: Date;
+
+  @IsString()
+  @IsNotEmpty()
+  citizenship: string;
 
 
   
