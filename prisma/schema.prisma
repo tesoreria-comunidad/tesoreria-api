@@ -29,7 +29,7 @@ model User {
   is_granted  Boolean  @default(false)
   is_active   Boolean  @default(true)
   role        Role
-  Family      Family?  @relation(fields: [id_family], references: [id])
+  family      Family?  @relation(fields: [id_family], references: [id])
   folder      Folder?  @relation(fields: [id_folder], references: [id])
   rama        Rama?    @relation(fields: [id_rama], references: [id])
   
