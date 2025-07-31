@@ -13,13 +13,38 @@ import * as bcrypt from 'bcrypt';
 export class UserService {
   constructor(private prisma: PrismaService) {}
 
-  public async getAllUser() {
-    return this.prisma.user.findMany({
-      include: {
-        folder: true,
-        rama: true,
-      },
-    });
+  public async getAllUser(user: any) {
+    if (user.role === 'MASTER') {
+      return this.prisma.user.findMany({
+        include: {
+          folder: true,
+          rama: true,
+        },
+      });
+    }
+
+    if (user.role === 'DIRIGENTE') {
+      if (!user.id_rama) {
+        throw new BadRequestException('El dirigente no tiene rama asignada');
+      }
+      return this.prisma.user.findMany({
+        where: { id_rama: user.id_rama },
+        include: {
+          folder: true,
+          rama: true,
+        },
+      });
+    }
+
+    if (user.role === 'BENEFICIARIO') {
+      return this.prisma.user.findMany({
+        where: { id: user.id },
+        include: {
+          folder: true,
+          rama: true,
+        },
+      });
+    }
   }
 
   public async getById(id: string) {

@@ -9,6 +9,7 @@ import {
   UseGuards,
   BadRequestException,
   NotFoundException,
+  Req,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { UpdateUserDTO, CreateUserDTO } from './dto/user.dto';
@@ -20,8 +21,8 @@ export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Get()
-  async getAllUsers() {
-    return await this.userService.getAllUser();
+  async getAllUsers(@Req() req: any) {
+    return await this.userService.getAllUser(req.user);
   }
 
   @Get(':id')
