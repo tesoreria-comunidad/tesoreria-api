@@ -85,7 +85,7 @@ model Payment {
   amount         Float
   payment_method PaymentMethod
   payment_type   PaymentType
-  Family         Family        @relation(fields: [id_family], references: [id])
+  family         Family        @relation(fields: [id_family], references: [id])
 }
 
 model Balance {
