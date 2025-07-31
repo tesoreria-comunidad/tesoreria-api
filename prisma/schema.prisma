@@ -72,7 +72,7 @@ model Family {
   phone      String
   balance    Balance   @relation(fields: [id_balance], references: [id])
   payments   Payment[]
-  User       User?
+  users       User[]
 }
 
 model Payment {
