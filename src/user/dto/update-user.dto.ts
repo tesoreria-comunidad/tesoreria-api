@@ -1,5 +1,5 @@
-import { IsOptional, IsString, IsUUID, IsEnum } from 'class-validator';
-import { Role } from '@prisma/client';
+import { IsOptional, IsString, IsUUID, IsEnum, IsEmail } from 'class-validator';
+import { Role, Gender } from '@prisma/client';
 
 export class UpdateUserDTO {
   @IsOptional()
@@ -25,4 +25,36 @@ export class UpdateUserDTO {
   @IsOptional()
   @IsUUID()
   id_person?: string;
+
+  @IsOptional()
+  @IsString()
+  name?: string;
+  
+  @IsOptional()
+  @IsString()
+  last_name?: string;
+  
+  @IsOptional()
+  @IsString()
+  address?: string;
+  
+  @IsOptional()
+  @IsString()
+  phone?: string;
+  
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+  
+  @IsOptional()
+  @IsEnum(Gender)
+  gender?: Gender;
+  
+  @IsOptional()
+  @IsString()
+  dni?: string;
+  
+  @IsOptional()
+  @IsUUID()
+  id_family?: string;
 }
