@@ -1,18 +1,30 @@
-import { Role } from '@prisma/client';
+import { Role, Gender } from '@prisma/client';
 import z from 'zod';
 
 export const UserSchema = z.object({
   id: z.string(),
   id_folder: z.string(),
   id_rama: z.string(),
-  id_person: z.string(),
+  id_family: z.string(),
   username: z.string(),
   password: z.string(),
+  email: z.string().email(),
+  name: z.string(),
+  lastName: z.string(),
+  gender: z.nativeEnum(Gender),
+  dni: z.string(),
+  phone: z.string(),
+  address: z.string(),
+  birthdate: z.date(),
+  citizenship: z.string(),
+  is_active: z.boolean(),
+  is_granted: z.boolean(),
   role: z.nativeEnum(Role),
   createdAt: z.date(),
   updatedAt: z.date(),
 });
 
+//Ver si es necesario
 export const CreateUserSchema = z.object({
   username: z.string(),
   password: z

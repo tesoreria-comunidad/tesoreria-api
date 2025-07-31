@@ -1,6 +1,17 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  UseGuards,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { UserService } from './user.service';
-import { CreateUserDTO } from './dto/user.dto';
+import { UpdateUserDTO, CreateUserDTO } from './dto/user.dto';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
 
 @UseGuards(AuthGuard)
@@ -13,13 +24,46 @@ export class UserController {
     return await this.userService.getAllUser();
   }
 
+  @Get(':id')
+  async getUserById(@Param('id') id: string) {
+    return await this.userService.getById(id);
+  }
+
   @Post()
-  async create(@Body() body: CreateUserDTO) {
+  async createUser(@Body() body: CreateUserDTO) {
+    return await this.userService.create(body as any);
+  }
+
+  @Patch(':id')
+  async update(@Param('id') id: string, @Body() body: UpdateUserDTO) {
+    return await this.userService.update(id, body);
+  }
+
+  @Delete(':id')
+  async deleteUser(@Param('id') id: string) {
     try {
-      console.log('body', body);
-      return 'algo';
+      const existingUser = await this.userService.getById(id);
+      if (!existingUser) {
+        throw new NotFoundException('Usuario no encontrado');
+      }
+
+      return await this.userService.delete(id);
     } catch (error) {
       throw error;
     }
+  }
+
+  @Post('bulk')
+  async bulkCreateUsers(@Body() users: CreateUserDTO[]) {
+    const usernames = users.map((user) => user.username);
+    const duplicates = usernames.filter(
+      (username, index) => usernames.indexOf(username) !== index,
+    );
+    if (duplicates.length > 0) {
+      throw new BadRequestException(
+        `Usuarios duplicados con username: ${[...new Set(duplicates)].join(', ')}`,
+      );
+    }
+    return await this.userService.bulkCreate(users);
   }
 }
