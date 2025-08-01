@@ -83,40 +83,63 @@ export class UserService {
     });
   }
 
-  public async bulkCreate(users: CreateUserDTO[]) {
+  public async bulkCreate(users: CreateUserDTO[], id_rama?: string) {
     if (!Array.isArray(users) || users.length === 0) {
       throw new BadRequestException('Debe proporcionar una lista de usuarios');
     }
 
-    // Obtener los usernames de los usuarios a crear
+    /* Validación de usernames existentes */
     const usernames = users.map((u) => u.username);
 
-    // Buscar si ya existen usuarios con esos usernames
-    const existingUsers = await this.prisma.user.findMany({
+    const existingUsernames = await this.prisma.user.findMany({
       where: { username: { in: usernames } },
       select: { username: true },
     });
 
-    if (existingUsers.length > 0) {
-      const existingUsernames = existingUsers.map((u) => u.username);
+    if (existingUsernames.length > 0) {
+      const conflicts = existingUsernames.map((u) => u.username);
       throw new BadRequestException(
-        `Ya existen usuarios con los siguientes usernames: ${existingUsernames.join(', ')}`,
+        `Ya existen usuarios con los siguientes usernames: ${conflicts.join(', ')}`,
       );
     }
 
+    /*Validación de emails existentes */
+    const emails = users.map((u) => u.email?.toLowerCase()).filter(Boolean);
+
+    if (emails.length > 0) {
+      const existingEmails = await this.prisma.user.findMany({
+        where: { email: { in: emails } },
+        select: { email: true },
+      });
+
+      if (existingEmails.length > 0) {
+        const conflicts = existingEmails.map((u) => u.email);
+        throw new BadRequestException(
+          `Ya existen usuarios con los siguientes emails: ${conflicts.join(', ')}`,
+        );
+      }
+    }
+
+    /* Hashear contraseñas y setear id_rama si aplica */
     const usersWithHashedPasswords = await Promise.all(
       users.map(async (user) => ({
         ...user,
-        password: await bcrypt.hash(user.password, +process.env.HASH_SALT),
+        password: await bcrypt.hash(
+          user.password,
+          +process.env.HASH_SALT || 10,
+        ),
+        id_rama: id_rama ?? null,
+        email: user.email?.toLowerCase() ?? null,
       })),
     );
+
     try {
       return await this.prisma.user.createMany({
         data: usersWithHashedPasswords,
         skipDuplicates: true,
       });
     } catch (error) {
-      console.log(error);
+      console.error('Error bulkCreate users:', error);
       throw new InternalServerErrorException('Error al crear usuarios en lote');
     }
   }
