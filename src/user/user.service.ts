@@ -3,6 +3,7 @@ import {
   Injectable,
   InternalServerErrorException,
   NotFoundException,
+  ConflictException,
 } from '@nestjs/common';
 import { User } from '@prisma/client';
 import { UpdateUserDTO, CreateUserDTO } from './dto/user.dto';
@@ -44,7 +45,92 @@ export class UserService {
   }
 
   public async create(data: CreateUserDTO | User) {
-    return this.prisma.user.create({ data });
+    try {
+      // Validaciones de campos obligatorios
+      if (!data.username || data.username.trim().length === 0) {
+        throw new BadRequestException('El nombre de usuario es requerido');
+      }
+      if (!data.password || data.password.trim().length === 0) {
+        throw new BadRequestException('La contraseña es requerida');
+      }
+      if (!data.name || data.name.trim().length === 0) {
+        throw new BadRequestException('El nombre es requerido');
+      }
+      if (!data.last_name || data.last_name.trim().length === 0) {
+        throw new BadRequestException('El apellido es requerido');
+      }
+      if (!data.address || data.address.trim().length === 0) {
+        throw new BadRequestException('La dirección es requerida');
+      }
+      if (!data.phone || data.phone.trim().length === 0) {
+        throw new BadRequestException('El teléfono es requerido');
+      }
+      if (!data.email || data.email.trim().length === 0) {
+        throw new BadRequestException('El email es requerido');
+      }
+      if (!data.dni || data.dni.trim().length === 0) {
+        throw new BadRequestException('El DNI es requerido');
+      }
+      if (!data.birthdate || isNaN(new Date(data.birthdate).getTime())) {
+        throw new BadRequestException('La fecha de nacimiento es requerida y debe ser válida');
+      }
+      if (!data.citizenship || data.citizenship.trim().length === 0) {
+        throw new BadRequestException('La ciudadanía es requerida');
+      }
+      if (!data.role) {
+        throw new BadRequestException('El rol es requerido');
+      }
+      if (!data.gender) {
+        throw new BadRequestException('El género es requerido');
+      }
+
+      // Verificar si ya existe un usuario con el mismo username
+      const existingUserByUsername = await this.prisma.user.findFirst({
+        where: { username: data.username.trim() }
+      });
+
+      if (existingUserByUsername) {
+        throw new BadRequestException('Ya existe un usuario con ese nombre de usuario');
+      }
+
+      // Verificar si ya existe un usuario con el mismo email
+      const existingUserByEmail = await this.prisma.user.findFirst({
+        where: { email: data.email.trim().toLowerCase() }
+      });
+
+      if (existingUserByEmail) {
+        throw new BadRequestException('Ya existe un usuario con ese email');
+      }
+
+      /* // Preparar datos limpios para la creación
+      const cleanData = {
+        ...data,
+        username: data.username.trim(),
+        name: data.name.trim(),
+        last_name: data.last_name.trim(),
+        address: data.address.trim(),
+        phone: data.phone.trim(),
+        email: data.email.trim().toLowerCase(),
+        dni: data.dni.trim(),
+        citizenship: data.citizenship.trim(),
+        password: hashedPassword
+      }; */
+
+      return await this.prisma.user.create({ 
+        data: data,
+        include: {
+          rama: true,
+          folder: true,
+          family: true
+        }
+      });
+      
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Error al crear el usuario');
+    }
   }
 
   public async findBy({
