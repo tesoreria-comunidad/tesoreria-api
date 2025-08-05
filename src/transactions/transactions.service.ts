@@ -116,4 +116,71 @@ export class TransactionsService {
       );
     }
   }
+  async bulkCreate(transactions: CreateTransactionDTO[]) {
+    try {
+      // Transformamos fechas y validamos mínimamente
+      const data = transactions.map((tx) => ({
+        id_family: tx.id_family,
+        amount: tx.amount,
+        payment_method: tx.payment_method,
+        direction: tx.direction,
+        category: tx.category,
+        payment_date: tx.payment_date ? new Date(tx.payment_date) : new Date(),
+        concept: tx.concept,
+        description: tx.description,
+      }));
+
+      const result = await this.prisma.transactions.createMany({
+        data,
+        skipDuplicates: true, // Evita error si hay UUIDs duplicados
+      });
+
+      return {
+        message: `${result.count} transacciones creadas exitosamente`,
+        count: result.count,
+      };
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Error al crear transacciones en bloque',
+      );
+    }
+  }
+
+  async getMonthlyStats() {
+    try {
+      // Traemos todas las transacciones con fecha y dirección
+      const transactions = await this.prisma.transactions.findMany({
+        select: {
+          amount: true,
+          payment_date: true,
+          direction: true,
+        },
+      });
+
+      // Reducimos a un formato { [mes]: { income, expense } }
+      const stats: Record<string, { income: number; expense: number }> = {};
+
+      transactions.forEach((tx) => {
+        const month = tx.payment_date.toLocaleString('en-US', {
+          month: 'long',
+        }); // "January"
+        if (!stats[month]) stats[month] = { income: 0, expense: 0 };
+
+        if (tx.direction === 'INCOME') {
+          stats[month].income += tx.amount;
+        } else {
+          stats[month].expense += tx.amount;
+        }
+      });
+
+      // Convertimos a array para Recharts
+      return Object.entries(stats).map(([month, values]) => ({
+        month,
+        income: values.income,
+        expense: values.expense,
+      }));
+    } catch (error) {
+      throw new InternalServerErrorException('Error al generar estadísticas');
+    }
+  }
 }
