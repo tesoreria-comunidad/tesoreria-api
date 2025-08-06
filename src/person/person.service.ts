@@ -15,9 +15,7 @@ export class PersonService {
   constructor(private prisma: PrismaService) { }
 
   async getAllPersons(): Promise<Person[]> {
-    return this.prisma.person.findMany({
-
-    });
+    return this.prisma.person.findMany();
   }
 
   async getById(id: string): Promise<Person | null> {
@@ -29,7 +27,6 @@ export class PersonService {
   async create(data: CreatePersonDTO): Promise<Person> {
     return this.prisma.person.create({
       data,
-
     });
   }
 
@@ -139,34 +136,10 @@ export class PersonService {
         ),
       );
 
-      // Si hay id_rama, creamos usuarios asociados
-      if (id_rama) {
-        const salt = +process.env.HASH_SALT || 10;
-
-        await Promise.all(
-          createdPersons.map(async (person) => {
-            const hashedPassword = await bcrypt.hash(person.dni, salt);
-            return this.prisma.user.create({
-              data: {
-                username: person.dni,
-                password: hashedPassword,
-                role: 'BENEFICIARIO',
-                id_rama: id_rama,
-                id_person: person.id,
-              },
-            });
-          }),
-        );
-      }
-
       // Devolvemos las personas creadas con relaciones
       return this.prisma.person.findMany({
         where: {
           id: { in: createdPersons.map((p) => p.id) },
-        },
-        include: {
-          user: true,
-          family: true,
         },
       });
     } catch (error) {
