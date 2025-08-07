@@ -12,34 +12,21 @@ import { removeUndefined } from '../utils/remove-undefined.util';
 import * as bcrypt from 'bcrypt';
 @Injectable()
 export class PersonService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async getAllPersons(): Promise<Person[]> {
-    return this.prisma.person.findMany({
-      include: {
-        user: true,
-        family: true,
-      },
-    });
+    return this.prisma.person.findMany();
   }
 
   async getById(id: string): Promise<Person | null> {
     return this.prisma.person.findUnique({
       where: { id },
-      include: {
-        user: true,
-        family: true,
-      },
     });
   }
 
   async create(data: CreatePersonDTO): Promise<Person> {
     return this.prisma.person.create({
       data,
-      include: {
-        user: true,
-        family: true,
-      },
     });
   }
 
@@ -48,10 +35,6 @@ export class PersonService {
     return this.prisma.person.update({
       where: { id },
       data: cleanData,
-      include: {
-        user: true,
-        family: true,
-      },
     });
   }
 
@@ -64,10 +47,6 @@ export class PersonService {
   async findByDni(dni: string): Promise<Person | null> {
     return this.prisma.person.findFirst({
       where: { dni },
-      include: {
-        user: true,
-        family: true,
-      },
     });
   }
 
@@ -157,41 +136,16 @@ export class PersonService {
         ),
       );
 
-      // Si hay id_rama, creamos usuarios asociados
-      if (id_rama) {
-        const salt = +process.env.HASH_SALT || 10;
-
-        await Promise.all(
-          createdPersons.map(async (person) => {
-            const hashedPassword = await bcrypt.hash(person.dni, salt);
-            return this.prisma.user.create({
-              data: {
-                username: person.dni,
-                password: hashedPassword,
-                role: 'BENEFICIARIO',
-                id_rama: id_rama,
-                id_person: person.id,
-              },
-            });
-          }),
-        );
-      }
-
       // Devolvemos las personas creadas con relaciones
       return this.prisma.person.findMany({
         where: {
           id: { in: createdPersons.map((p) => p.id) },
         },
-        include: {
-          user: true,
-          family: true,
-        },
       });
     } catch (error) {
       console.log('error at persons bulk create', error);
       throw new InternalServerErrorException(
-        `Error in persons bulkCreate: ${
-          error instanceof Error ? error.message : String(error)
+        `Error in persons bulkCreate: ${error instanceof Error ? error.message : String(error)
         }`,
       );
     }

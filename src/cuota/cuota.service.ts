@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { PrismaClient, Cuota } from '@prisma/client';
 import { CreateCuotaDTO, UpdateCuotaDTO } from './dto/cuota.dto';
 
@@ -20,7 +25,7 @@ export class CuotaService {
         throw new BadRequestException('ID es requerido');
       }
 
-      const cuota = await this.prisma.cuota.findFirst({ 
+      const cuota = await this.prisma.cuota.findFirst({
         where: { id },
       });
 
@@ -30,7 +35,10 @@ export class CuotaService {
 
       return cuota;
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
         throw error;
       }
       throw new InternalServerErrorException('Error al obtener la cuota');
@@ -42,8 +50,16 @@ export class CuotaService {
       if (data.cuota_amount < 0 || data.cfa_amount < 0) {
         throw new BadRequestException('Los montos no pueden ser negativos');
       }
-
-      return await this.prisma.cuota.create({ 
+      const activeCuota = await this.prisma.cuota.findFirst({
+        where: { is_active: true },
+      });
+      if (activeCuota) {
+        await this.prisma.cuota.update({
+          where: { id: activeCuota.id },
+          data: { is_active: false },
+        });
+      }
+      return await this.prisma.cuota.create({
         data,
       });
     } catch (error) {
@@ -64,7 +80,9 @@ export class CuotaService {
       await this.getById(id);
 
       if (data.cuota_amount !== undefined && data.cuota_amount < 0) {
-        throw new BadRequestException('El monto de cuota no puede ser negativo');
+        throw new BadRequestException(
+          'El monto de cuota no puede ser negativo',
+        );
       }
 
       if (data.cfa_amount !== undefined && data.cfa_amount < 0) {
@@ -76,7 +94,10 @@ export class CuotaService {
         data,
       });
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
         throw error;
       }
       throw new InternalServerErrorException('Error al actualizar la cuota');
@@ -96,7 +117,10 @@ export class CuotaService {
         where: { id },
       });
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
         throw error;
       }
       throw new InternalServerErrorException('Error al eliminar la cuota');

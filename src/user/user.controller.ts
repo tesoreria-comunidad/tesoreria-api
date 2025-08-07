@@ -9,6 +9,7 @@ import {
   UseGuards,
   BadRequestException,
   NotFoundException,
+  Query,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { UpdateUserDTO, CreateUserDTO } from './dto/user.dto';
@@ -54,16 +55,52 @@ export class UserController {
   }
 
   @Post('bulk')
-  async bulkCreateUsers(@Body() users: CreateUserDTO[]) {
+  async bulkCreateUsers(
+    @Body() body: { users: CreateUserDTO[] },
+    @Query() query: { id_rama?: string },
+  ) {
+    const { users } = body;
+    const { id_rama } = query;
+
+    if (!Array.isArray(users) || users.length === 0) {
+      throw new BadRequestException('Debe proporcionar una lista de usuarios');
+    }
+
+    /** 🔹 Validar usernames duplicados en el payload */
     const usernames = users.map((user) => user.username);
-    const duplicates = usernames.filter(
+    const duplicateUsernames = usernames.filter(
       (username, index) => usernames.indexOf(username) !== index,
     );
-    if (duplicates.length > 0) {
+    if (duplicateUsernames.length > 0) {
       throw new BadRequestException(
-        `Usuarios duplicados con username: ${[...new Set(duplicates)].join(', ')}`,
+        `Usuarios duplicados en el body con username: ${[...new Set(duplicateUsernames)].join(', ')}`,
       );
     }
-    return await this.userService.bulkCreate(users);
+
+    /** 🔹 Validar emails duplicados en el payload */
+    const emails = users
+      .map((user) => user.email?.toLowerCase())
+      .filter(Boolean);
+    const duplicateEmails = emails.filter(
+      (email, index) => emails.indexOf(email) !== index,
+    );
+    if (duplicateEmails.length > 0) {
+      throw new BadRequestException(
+        `Usuarios duplicados en el body con email: ${[...new Set(duplicateEmails)].join(', ')}`,
+      );
+    }
+
+    /** 🔹 Validar DNIs duplicados en el payload */
+    const dniSet = new Set<string>();
+    for (const user of users) {
+      if (dniSet.has(user.dni)) {
+        throw new BadRequestException(
+          `DNI duplicado encontrado en el body: ${user.dni}`,
+        );
+      }
+      dniSet.add(user.dni);
+    }
+
+    return await this.userService.bulkCreate(users, id_rama);
   }
 }
