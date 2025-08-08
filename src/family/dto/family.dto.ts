@@ -2,9 +2,6 @@ import { IsNotEmpty, IsNumber, IsBoolean, IsOptional, IsString, IsEnum } from 'c
 
 
 export class CreateFamilyDto {
-    @IsString()
-    @IsOptional()
-    id_balance?: string;
 
     @IsString()
     @IsNotEmpty()

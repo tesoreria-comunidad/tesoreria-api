@@ -12,7 +12,7 @@ import { removeUndefined } from '../utils/remove-undefined.util';
 import * as bcrypt from 'bcrypt';
 @Injectable()
 export class PersonService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async getAllPersons(): Promise<Person[]> {
     return this.prisma.person.findMany();
@@ -145,8 +145,7 @@ export class PersonService {
     } catch (error) {
       console.log('error at persons bulk create', error);
       throw new InternalServerErrorException(
-        `Error in persons bulkCreate: ${
-          error instanceof Error ? error.message : String(error)
+        `Error in persons bulkCreate: ${error instanceof Error ? error.message : String(error)
         }`,
       );
     }

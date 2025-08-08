@@ -14,33 +14,40 @@ import {
 import { UserService } from './user.service';
 import { UpdateUserDTO, CreateUserDTO } from './dto/user.dto';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
 
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, RolesGuard)
 @Controller('user')
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(private readonly userService: UserService) { }
 
   @Get()
+  @Roles('master', 'dirigente')
   async getAllUsers() {
     return await this.userService.getAllUser();
   }
 
   @Get(':id')
+  @Roles('master', 'dirigente')
   async getUserById(@Param('id') id: string) {
     return await this.userService.getById(id);
   }
 
   @Post()
+  @Roles('master', 'dirigente')
   async createUser(@Body() body: CreateUserDTO) {
     return await this.userService.create(body as any);
   }
 
   @Patch(':id')
+  @Roles('master', 'dirigente')
   async update(@Param('id') id: string, @Body() body: UpdateUserDTO) {
     return await this.userService.update(id, body);
   }
 
   @Delete(':id')
+  @Roles('master', 'dirigente')
   async deleteUser(@Param('id') id: string) {
     try {
       const existingUser = await this.userService.getById(id);
@@ -55,6 +62,7 @@ export class UserController {
   }
 
   @Post('bulk')
+  @Roles('master', 'dirigente')
   async bulkCreateUsers(
     @Body() body: { users: CreateUserDTO[] },
     @Query() query: { id_rama?: string },
