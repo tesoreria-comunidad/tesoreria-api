@@ -17,32 +17,29 @@ export class FamilyService {
   ) { }
   public async create(data: CreateFamilyDto): Promise<Family> {
     try {
-      let balanceId = data.id_balance;
+      const result = await this.prisma.$transaction(async (tx) => {
+        const newBalance = await this.balanceService.create(
+          {
+            cuota_balance: 0,
+            cfa_balance: 0,
+            custom_balance: 0,
+            is_custom_cuota: false,
+            is_custom_cfa: false,
+          },
+        );
 
-      if (!balanceId) {
-        const newBalance = await this.balanceService.create({
-          cuota_balance: 0,
-          cfa_balance: 0,
-          custom_balance: 0,
-          is_custom_cuota: false,
-          is_custom_cfa: false,
+        const family = await tx.family.create({
+          data: {
+            id_balance: newBalance.id,
+            name: data.name,
+            phone: data.phone,
+          },
         });
 
-        balanceId = newBalance.id;
-      } else {
-        const existingBalance = await this.balanceService.getById(balanceId);
-        if (!existingBalance) {
-          throw new BadRequestException('El balance proporcionado no existe');
-        }
-      }
-
-      return await this.prisma.family.create({
-        data: {
-          id_balance: balanceId,
-          name: data.name,
-          phone: data.phone,
-        },
+        return family;
       });
+
+      return result;
     } catch (error) {
       throw new InternalServerErrorException('Error al crear la familia');
     }
