@@ -17,11 +17,11 @@ export class CreateUserDTO {
 
   @IsOptional()
   @IsUUID('4', { message: 'El ID de carpeta debe ser un UUID válido' })
-  id_folder?: string;
+  id_folder: string | null;
 
   @IsOptional()
   @IsUUID('4', { message: 'El ID de rama debe ser un UUID válido' })
-  id_rama?: string;
+  id_rama: string | null;
 
   @IsString({ message: 'El nombre debe ser una cadena de texto' })
   @IsNotEmpty({ message: 'El nombre es requerido' })
@@ -53,7 +53,7 @@ export class CreateUserDTO {
   
   @IsUUID('4', { message: 'El ID de familia debe ser un UUID válido' })
   @IsOptional()
-  id_family?: string;
+  id_family: string | null;
 
   @IsDate({ message: 'La fecha de nacimiento debe ser una fecha válida' })
   @IsNotEmpty({ message: 'La fecha de nacimiento es requerida' })
