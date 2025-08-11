@@ -10,6 +10,8 @@ import {
   BadRequestException,
   NotFoundException,
   Query,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { UpdateUserDTO, CreateUserDTO } from './dto/user.dto';
@@ -21,40 +23,38 @@ export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Get()
+  @HttpCode(HttpStatus.OK)
   async getAllUsers() {
     return await this.userService.getAllUser();
   }
 
   @Get(':id')
+  @HttpCode(HttpStatus.OK)
   async getUserById(@Param('id') id: string) {
     return await this.userService.getById(id);
   }
 
   @Post()
+  @HttpCode(HttpStatus.CREATED)
   async createUser(@Body() body: CreateUserDTO) {
-    return await this.userService.create(body as any);
+    return await this.userService.create(body);
   }
 
   @Patch(':id')
+  @HttpCode(HttpStatus.OK)
   async update(@Param('id') id: string, @Body() body: UpdateUserDTO) {
     return await this.userService.update(id, body);
   }
 
   @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
   async deleteUser(@Param('id') id: string) {
-    try {
-      const existingUser = await this.userService.getById(id);
-      if (!existingUser) {
-        throw new NotFoundException('Usuario no encontrado');
-      }
-
-      return await this.userService.delete(id);
-    } catch (error) {
-      throw error;
-    }
+    await this.userService.delete(id);
+    return;
   }
 
   @Post('bulk')
+  @HttpCode(HttpStatus.CREATED)
   async bulkCreateUsers(
     @Body() body: { users: CreateUserDTO[] },
     @Query() query: { id_rama?: string },
@@ -66,7 +66,7 @@ export class UserController {
       throw new BadRequestException('Debe proporcionar una lista de usuarios');
     }
 
-    /** 🔹 Validar usernames duplicados en el payload */
+    /** Validar usernames duplicados en el payload */
     const usernames = users.map((user) => user.username);
     const duplicateUsernames = usernames.filter(
       (username, index) => usernames.indexOf(username) !== index,
@@ -77,7 +77,7 @@ export class UserController {
       );
     }
 
-    /** 🔹 Validar emails duplicados en el payload */
+    /** Validar emails duplicados en el payload */
     const emails = users
       .map((user) => user.email?.toLowerCase())
       .filter(Boolean);
@@ -90,7 +90,7 @@ export class UserController {
       );
     }
 
-    /** 🔹 Validar DNIs duplicados en el payload */
+    /** Validar DNIs duplicados en el payload */
     const dniSet = new Set<string>();
     for (const user of users) {
       if (dniSet.has(user.dni)) {
