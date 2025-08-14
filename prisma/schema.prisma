@@ -153,6 +153,7 @@ enum Role {
   DIRIGENTE
   BENEFICIARIO
   MASTER
+  FAMILY
 }
 
 enum familyRole {
