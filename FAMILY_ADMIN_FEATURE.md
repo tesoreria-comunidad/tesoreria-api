@@ -27,13 +27,19 @@ Se ha implementado la funcionalidad para crear usuarios administradores desde la
 #### UserService (`src/user/user.service.ts`)
 - **create()**: Actualizado para manejar `family_role`
 - **getUsersByFamily()**: Nuevo método para obtener usuarios de una familia
-- **getFamilyAdmin()**: Nuevo método para obtener el administrador de una familia
+- **getFamilyAdmin()**: Método para obtener un administrador de una familia
+- **getFamilyAdmins()**: Nuevo método para obtener todos los administradores de una familia
+- **promoteToFamilyAdmin()**: Nuevo método para promover un usuario a administrador
+- **demoteFromFamilyAdmin()**: Nuevo método para degradar un administrador a miembro
 
 ### 4. Controladores Actualizados
 
 #### UserController (`src/user/user.controller.ts`)
 - **GET /user/family/:familyId**: Obtener todos los usuarios de una familia
-- **GET /user/family/:familyId/admin**: Obtener el administrador de una familia
+- **GET /user/family/:familyId/admin**: Obtener el primer administrador de una familia
+- **GET /user/family/:familyId/admins**: Obtener todos los administradores de una familia
+- **PATCH /user/family/:familyId/promote/:userId**: Promover un usuario a administrador
+- **PATCH /user/family/:familyId/demote/:userId**: Degradar un administrador a miembro
 
 ## Uso de la API
 
@@ -87,6 +93,24 @@ GET /user/family/{familyId}
 GET /user/family/{familyId}/admin
 ```
 
+### Obtener todos los administradores de una familia
+
+```http
+GET /user/family/{familyId}/admins
+```
+
+### Promover un usuario a administrador
+
+```http
+PATCH /user/family/{familyId}/promote/{userId}
+```
+
+### Degradar un administrador a miembro
+
+```http
+PATCH /user/family/{familyId}/demote/{userId}
+```
+
 ### Crear usuario regular de una familia
 
 ```http
@@ -116,13 +140,15 @@ Content-Type: application/json
 1. **Unicidad**: Username, email y DNI únicos en toda la base de datos
 2. **Existencia**: Validación de que rama, carpeta y familia existan al asignarlos
 3. **Roles familiares**: 
-   - `ADMIN`: Usuario administrador de la familia (creado desde family)
+   - `ADMIN`: Usuario administrador de la familia (puede haber múltiples)
    - `MEMBER`: Usuario regular de la familia (por defecto)
 
 ## Consideraciones
 
-- Cada familia puede tener múltiples usuarios, pero solo uno con rol `ADMIN`
+- **Múltiples administradores**: Una familia puede tener uno o más usuarios con rol `ADMIN`
 - El usuario administrador se crea automáticamente con `family_role = 'ADMIN'`
 - Los usuarios regulares tienen `family_role = 'MEMBER'` por defecto
+- **Protección**: No se puede degradar al último administrador de una familia
+- **Promoción/Degradación**: Los usuarios existentes pueden ser promovidos o degradados
 - La contraseña se hashea automáticamente antes de guardar en la base de datos
 - Se mantiene la compatibilidad con la funcionalidad existente de usuarios

@@ -108,7 +108,7 @@ export class FamilyService {
         +process.env.HASH_SALT || 10,
       );
 
-      // Crear el usuario administrador de la familia
+      // Crear el usuario administrador de la familia (puede haber múltiples administradores)
       await this.prisma.user.create({
         data: {
           username: adminUserData.username.trim(),

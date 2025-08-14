@@ -495,4 +495,132 @@ export class UserService {
       throw new InternalServerErrorException('Error al obtener el administrador de la familia');
     }
   }
+
+  public async getFamilyAdmins(familyId: string) {
+    try {
+      if (!familyId) {
+        throw new BadRequestException('ID de familia es requerido');
+      }
+
+      const admins = await this.prisma.user.findMany({
+        where: { 
+          id_family: familyId,
+          family_role: 'ADMIN'
+        },
+        include: {
+          rama: true,
+          folder: true,
+          family: true
+        },
+        orderBy: { name: 'asc' }
+      });
+
+      return admins;
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Error al obtener los administradores de la familia');
+    }
+  }
+
+  public async promoteToFamilyAdmin(userId: string, familyId: string) {
+    try {
+      if (!userId || !familyId) {
+        throw new BadRequestException('ID de usuario e ID de familia son requeridos');
+      }
+
+      // Verificar que el usuario existe y pertenece a la familia
+      const user = await this.prisma.user.findFirst({
+        where: { 
+          id: userId,
+          id_family: familyId
+        }
+      });
+
+      if (!user) {
+        throw new NotFoundException('Usuario no encontrado o no pertenece a esta familia');
+      }
+
+      // Verificar que la familia existe
+      const family = await this.prisma.family.findFirst({
+        where: { id: familyId }
+      });
+
+      if (!family) {
+        throw new NotFoundException('La familia especificada no existe');
+      }
+
+      // Promover usuario a administrador
+      return await this.prisma.user.update({
+        where: { id: userId },
+        data: { family_role: 'ADMIN' },
+        include: {
+          rama: true,
+          folder: true,
+          family: true
+        }
+      });
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Error al promover el usuario a administrador');
+    }
+  }
+
+  public async demoteFromFamilyAdmin(userId: string, familyId: string) {
+    try {
+      if (!userId || !familyId) {
+        throw new BadRequestException('ID de usuario e ID de familia son requeridos');
+      }
+
+      // Verificar que el usuario existe y pertenece a la familia
+      const user = await this.prisma.user.findFirst({
+        where: { 
+          id: userId,
+          id_family: familyId,
+          family_role: 'ADMIN'
+        }
+      });
+
+      if (!user) {
+        throw new NotFoundException('Usuario administrador no encontrado en esta familia');
+      }
+
+      // Verificar que no es el último administrador
+      const adminCount = await this.prisma.user.count({
+        where: {
+          id_family: familyId,
+          family_role: 'ADMIN'
+        }
+      });
+
+      if (adminCount <= 1) {
+        throw new BadRequestException('No se puede remover el último administrador de la familia');
+      }
+
+      // Degradar usuario a miembro regular
+      return await this.prisma.user.update({
+        where: { id: userId },
+        data: { family_role: 'MEMBER' },
+        include: {
+          rama: true,
+          folder: true,
+          family: true
+        }
+      });
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Error al degradar el administrador a miembro');
+    }
+  }
 }

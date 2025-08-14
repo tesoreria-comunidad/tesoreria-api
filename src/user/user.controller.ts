@@ -115,4 +115,28 @@ export class UserController {
   async getFamilyAdmin(@Param('familyId') familyId: string) {
     return await this.userService.getFamilyAdmin(familyId);
   }
+
+  @Get('family/:familyId/admins')
+  @HttpCode(HttpStatus.OK)
+  async getFamilyAdmins(@Param('familyId') familyId: string) {
+    return await this.userService.getFamilyAdmins(familyId);
+  }
+
+  @Patch('family/:familyId/promote/:userId')
+  @HttpCode(HttpStatus.OK)
+  async promoteToFamilyAdmin(
+    @Param('familyId') familyId: string,
+    @Param('userId') userId: string,
+  ) {
+    return await this.userService.promoteToFamilyAdmin(userId, familyId);
+  }
+
+  @Patch('family/:familyId/demote/:userId')
+  @HttpCode(HttpStatus.OK)
+  async demoteFromFamilyAdmin(
+    @Param('familyId') familyId: string,
+    @Param('userId') userId: string,
+  ) {
+    return await this.userService.demoteFromFamilyAdmin(userId, familyId);
+  }
 }
