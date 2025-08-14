@@ -124,9 +124,8 @@ export class UserService {
         +process.env.HASH_SALT || 10,
       );
 
-      /* // Preparar datos limpios para la creación
+      // Preparar datos limpios para la creación
       const cleanData = {
-        ...data,
         username: data.username.trim(),
         name: data.name.trim(),
         last_name: data.last_name.trim(),
@@ -135,11 +134,18 @@ export class UserService {
         email: data.email.trim().toLowerCase(),
         dni: data.dni.trim(),
         citizenship: data.citizenship.trim(),
-        password: hashedPassword
-      }; */
+        password: hashedPassword,
+        birthdate: data.birthdate,
+        gender: data.gender,
+        role: data.role,
+        family_role: data.family_role || 'MEMBER', // Por defecto MEMBER si no se especifica
+        id_folder: data.id_folder,
+        id_rama: data.id_rama,
+        id_family: data.id_family
+      };
 
       return await this.prisma.user.create({ 
-        data: data,
+        data: cleanData,
         include: {
           rama: true,
           folder: true,
@@ -416,6 +422,77 @@ export class UserService {
       }
       console.error('Error bulkCreate users:', error);
       throw new InternalServerErrorException('Error al crear usuarios en lote');
+    }
+  }
+
+  public async getUsersByFamily(familyId: string) {
+    try {
+      if (!familyId) {
+        throw new BadRequestException('ID de familia es requerido');
+      }
+
+      // Verificar que la familia existe
+      const familyExists = await this.prisma.family.findFirst({
+        where: { id: familyId }
+      });
+      if (!familyExists) {
+        throw new NotFoundException('La familia especificada no existe');
+      }
+
+      return await this.prisma.user.findMany({
+        where: { id_family: familyId },
+        include: {
+          rama: true,
+          folder: true,
+          family: true
+        },
+        orderBy: [
+          { family_role: 'asc' }, // ADMIN primero, luego MEMBER
+          { name: 'asc' }
+        ]
+      });
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Error al obtener los usuarios de la familia');
+    }
+  }
+
+  public async getFamilyAdmin(familyId: string) {
+    try {
+      if (!familyId) {
+        throw new BadRequestException('ID de familia es requerido');
+      }
+
+      const admin = await this.prisma.user.findFirst({
+        where: { 
+          id_family: familyId,
+          family_role: 'ADMIN'
+        },
+        include: {
+          rama: true,
+          folder: true,
+          family: true
+        }
+      });
+
+      if (!admin) {
+        throw new NotFoundException('No se encontró un administrador para esta familia');
+      }
+
+      return admin;
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Error al obtener el administrador de la familia');
     }
   }
 }

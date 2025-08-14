@@ -103,4 +103,16 @@ export class UserController {
 
     return await this.userService.bulkCreate(users, id_rama);
   }
+
+  @Get('family/:familyId')
+  @HttpCode(HttpStatus.OK)
+  async getUsersByFamily(@Param('familyId') familyId: string) {
+    return await this.userService.getUsersByFamily(familyId);
+  }
+
+  @Get('family/:familyId/admin')
+  @HttpCode(HttpStatus.OK)
+  async getFamilyAdmin(@Param('familyId') familyId: string) {
+    return await this.userService.getFamilyAdmin(familyId);
+  }
 }

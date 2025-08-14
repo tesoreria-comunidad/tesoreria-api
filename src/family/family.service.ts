@@ -3,11 +3,13 @@ import {
   NotFoundException,
   BadRequestException,
   InternalServerErrorException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
 import { CreateFamilyDto, UpdateFamilyDto } from './dto/family.dto';
 import { BalanceService } from 'src/balance/balance.service';
 import { Family } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class FamilyService {
@@ -36,15 +38,100 @@ export class FamilyService {
         }
       }
 
-      return await this.prisma.family.create({
+      // Crear la familia primero
+      const family = await this.prisma.family.create({
         data: {
           id_balance: balanceId,
           name: data.name,
           phone: data.phone,
         },
       });
+
+      // Si se proporciona datos del usuario administrador, crear el usuario
+      if (data.admin_user) {
+        await this.createFamilyAdminUser(family.id, data.admin_user);
+      }
+
+      // Retornar la familia con sus relaciones
+      const familyWithRelations = await this.prisma.family.findUnique({
+        where: { id: family.id },
+        include: {
+          users: true,
+          balance: true,
+        },
+      });
+
+      return familyWithRelations || family;
     } catch (error) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof ConflictException
+      ) {
+        throw error;
+      }
       throw new InternalServerErrorException('Error al crear la familia');
+    }
+  }
+
+  private async createFamilyAdminUser(familyId: string, adminUserData: any) {
+    try {
+      // Verificar si ya existe un usuario con el mismo username
+      const existingUserByUsername = await this.prisma.user.findFirst({
+        where: { username: adminUserData.username.trim() }
+      });
+
+      if (existingUserByUsername) {
+        throw new ConflictException(`Ya existe un usuario con el username: ${adminUserData.username}`);
+      }
+
+      // Verificar si ya existe un usuario con el mismo email
+      const existingUserByEmail = await this.prisma.user.findFirst({
+        where: { email: adminUserData.email.trim().toLowerCase() }
+      });
+
+      if (existingUserByEmail) {
+        throw new ConflictException(`Ya existe un usuario con el email: ${adminUserData.email}`);
+      }
+
+      // Verificar si ya existe un usuario con el mismo DNI
+      const existingUserByDNI = await this.prisma.user.findFirst({
+        where: { dni: adminUserData.dni.trim() }
+      });
+
+      if (existingUserByDNI) {
+        throw new ConflictException(`Ya existe un usuario con el DNI: ${adminUserData.dni}`);
+      }
+
+      // Hash de la contraseña
+      const hashedPassword = await bcrypt.hash(
+        adminUserData.password,
+        +process.env.HASH_SALT || 10,
+      );
+
+      // Crear el usuario administrador de la familia
+      await this.prisma.user.create({
+        data: {
+          username: adminUserData.username.trim(),
+          password: hashedPassword,
+          name: adminUserData.name.trim(),
+          last_name: adminUserData.last_name.trim(),
+          address: adminUserData.address.trim(),
+          phone: adminUserData.phone.trim(),
+          email: adminUserData.email.trim().toLowerCase(),
+          gender: adminUserData.gender,
+          dni: adminUserData.dni.trim(),
+          birthdate: adminUserData.birthdate,
+          citizenship: adminUserData.citizenship.trim(),
+          role: adminUserData.role || 'BENEFICIARIO', // Por defecto BENEFICIARIO
+          family_role: 'ADMIN', // Siempre ADMIN para el usuario creado desde familia
+          id_family: familyId,
+        },
+      });
+    } catch (error) {
+      if (error instanceof ConflictException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Error al crear el usuario administrador de la familia');
     }
   }
 
