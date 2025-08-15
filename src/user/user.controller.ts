@@ -12,6 +12,8 @@ import {
   Query,
   HttpCode,
   HttpStatus,
+  Request,
+
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { UpdateUserDTO, CreateUserDTO } from './dto/user.dto';
@@ -24,14 +26,14 @@ export class UserController {
 
   @Get()
   @HttpCode(HttpStatus.OK)
-  async getAllUsers() {
-    return await this.userService.getAllUser();
+  async getAllUsers(@Request() req: any) {
+    return await this.userService.getAllUser(req.user);
   }
 
   @Get(':id')
   @HttpCode(HttpStatus.OK)
-  async getUserById(@Param('id') id: string) {
-    return await this.userService.getById(id);
+  async getUserById(@Param('id') id: string, @Request() req: any) {
+    return await this.userService.getById(id, req.user);
   }
 
   @Post()
@@ -42,14 +44,14 @@ export class UserController {
 
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
-  async update(@Param('id') id: string, @Body() body: UpdateUserDTO) {
-    return await this.userService.update(id, body);
+  async update(@Param('id') id: string, @Body() body: UpdateUserDTO, @Request() req: any) {
+    return await this.userService.update(id, body, req.user);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteUser(@Param('id') id: string) {
-    await this.userService.delete(id);
+  async deleteUser(@Param('id') id: string, @Request() req: any) {
+    await this.userService.delete(id, req.user);
     return;
   }
 
@@ -57,7 +59,8 @@ export class UserController {
   @HttpCode(HttpStatus.CREATED)
   async bulkCreateUsers(
     @Body() body: { users: CreateUserDTO[] },
-    @Query() query: { id_rama?: string },
+    @Query() query: { id_rama: string },
+    @Request() req: any,
   ) {
     const { users } = body;
     const { id_rama } = query;
@@ -101,25 +104,25 @@ export class UserController {
       dniSet.add(user.dni);
     }
 
-    return await this.userService.bulkCreate(users, id_rama);
+    return await this.userService.bulkCreate(users, id_rama, req.user);
   }
 
   @Get('family/:familyId')
   @HttpCode(HttpStatus.OK)
-  async getUsersByFamily(@Param('familyId') familyId: string) {
-    return await this.userService.getUsersByFamily(familyId);
+  async getUsersByFamily(@Param('familyId') familyId: string, @Request() req: any) {
+    return await this.userService.getUsersByFamily(familyId, req.user);
   }
 
   @Get('family/:familyId/admin')
   @HttpCode(HttpStatus.OK)
-  async getFamilyAdmin(@Param('familyId') familyId: string) {
-    return await this.userService.getFamilyAdmin(familyId);
+  async getFamilyAdmin(@Param('familyId') familyId: string, @Request() req: any) {
+    return await this.userService.getFamilyAdmin(familyId, req.user);
   }
 
   @Get('family/:familyId/admins')
   @HttpCode(HttpStatus.OK)
-  async getFamilyAdmins(@Param('familyId') familyId: string) {
-    return await this.userService.getFamilyAdmins(familyId);
+  async getFamilyAdmins(@Param('familyId') familyId: string, @Request() req: any) {
+    return await this.userService.getFamilyAdmins(familyId, req.user);
   }
 
   @Patch('family/:familyId/promote/:userId')
@@ -127,8 +130,9 @@ export class UserController {
   async promoteToFamilyAdmin(
     @Param('familyId') familyId: string,
     @Param('userId') userId: string,
+    @Request() req: any
   ) {
-    return await this.userService.promoteToFamilyAdmin(userId, familyId);
+    return await this.userService.promoteToFamilyAdmin(userId, familyId, req.user);
   }
 
   @Patch('family/:familyId/demote/:userId')
@@ -136,7 +140,8 @@ export class UserController {
   async demoteFromFamilyAdmin(
     @Param('familyId') familyId: string,
     @Param('userId') userId: string,
+    @Request() req: any
   ) {
-    return await this.userService.demoteFromFamilyAdmin(userId, familyId);
+    return await this.userService.demoteFromFamilyAdmin(userId, familyId, req.user);
   }
 }
