@@ -1,6 +1,5 @@
 import { IsEmail, IsNotEmpty, IsString, IsOptional, IsUUID, IsEnum, IsDate } from 'class-validator';
-import { Role } from '@prisma/client';
-import { Gender } from '@prisma/client';
+import { Role, Gender, familyRole } from '@prisma/client';
 
 export class CreateUserDTO {
   @IsString({ message: 'El nombre de usuario debe ser una cadena de texto' })
@@ -62,6 +61,10 @@ export class CreateUserDTO {
   @IsString({ message: 'La ciudadanía debe ser una cadena de texto' })
   @IsNotEmpty({ message: 'La ciudadanía es requerida' })
   citizenship: string;
+
+  @IsEnum(familyRole, { message: 'El rol familiar debe ser válido' })
+  @IsOptional()
+  family_role?: familyRole;
 }
 
 export class UpdateUserDTO {
@@ -124,4 +127,8 @@ export class UpdateUserDTO {
   @IsString({ message: 'La ciudadanía debe ser una cadena de texto' })
   @IsOptional()
   citizenship?: string;
+
+  @IsEnum(familyRole, { message: 'El rol familiar debe ser válido' })
+  @IsOptional()
+  family_role?: familyRole;
 }

@@ -103,4 +103,40 @@ export class UserController {
 
     return await this.userService.bulkCreate(users, id_rama);
   }
+
+  @Get('family/:familyId')
+  @HttpCode(HttpStatus.OK)
+  async getUsersByFamily(@Param('familyId') familyId: string) {
+    return await this.userService.getUsersByFamily(familyId);
+  }
+
+  @Get('family/:familyId/admin')
+  @HttpCode(HttpStatus.OK)
+  async getFamilyAdmin(@Param('familyId') familyId: string) {
+    return await this.userService.getFamilyAdmin(familyId);
+  }
+
+  @Get('family/:familyId/admins')
+  @HttpCode(HttpStatus.OK)
+  async getFamilyAdmins(@Param('familyId') familyId: string) {
+    return await this.userService.getFamilyAdmins(familyId);
+  }
+
+  @Patch('family/:familyId/promote/:userId')
+  @HttpCode(HttpStatus.OK)
+  async promoteToFamilyAdmin(
+    @Param('familyId') familyId: string,
+    @Param('userId') userId: string,
+  ) {
+    return await this.userService.promoteToFamilyAdmin(userId, familyId);
+  }
+
+  @Patch('family/:familyId/demote/:userId')
+  @HttpCode(HttpStatus.OK)
+  async demoteFromFamilyAdmin(
+    @Param('familyId') familyId: string,
+    @Param('userId') userId: string,
+  ) {
+    return await this.userService.demoteFromFamilyAdmin(userId, familyId);
+  }
 }
