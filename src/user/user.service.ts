@@ -539,15 +539,30 @@ export class UserService {
   }
 
   private applyRoleFilter(loggedUser: any, where: any = {}) {
-  switch (loggedUser.role) {
-    case 'MASTER':
-      return where; 
-    case 'DIRIGENTE':
-      return { ...where, id_rama: loggedUser.id_rama };
-    case 'BENEFICIARIO':
-      return { ...where, id: loggedUser.id };
-    default:
-      return where;
+    switch (loggedUser.role) {
+      case 'MASTER':
+        return where; 
+      case 'DIRIGENTE':
+        return { ...where, id_rama: loggedUser.id_rama };
+      case 'BENEFICIARIO':
+        return { ...where, id: loggedUser.id };
+      default:
+        return where;
+    }
   }
-}
+
+    // Necesario para uso en AuthService (sin restricciones de rol)
+  public async getByIdInternal(id: string) {
+    return this.prisma.user.findFirst({
+      where: { id },
+      include: { rama: true, folder: true, family: true },
+    });
+  }
+
+  public async findByInternal(where: Partial<User>) {
+    return this.prisma.user.findFirst({
+      where,
+      include: { rama: true, folder: true, family: true },
+    });
+  }
 }
