@@ -9,10 +9,12 @@ import {
   CreateTransactionDTO,
   UpdateTransactionDTO,
 } from './dto/transactions.dto';
+import { RoleFilterService } from 'src/services/RoleFilterService';
+import { log } from 'console';
 
 @Injectable()
 export class TransactionsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private roleFilterService: RoleFilterService) {}
 
   async create(data: CreateTransactionDTO) {
     try {
@@ -35,24 +37,24 @@ export class TransactionsService {
     }
   }
 
-  async findAll() {
+  async findAll(loggedUser: any) {
     try {
+      const where = this.roleFilterService.apply(loggedUser);
       return await this.prisma.transactions.findMany({
+        where,
         orderBy: { createdAt: 'desc' },
       });
     } catch (error) {
-      throw new InternalServerErrorException(
-        'Error al obtener las transacciones',
-      );
+      throw new InternalServerErrorException('Error al obtener las transacciones');
     }
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, loggedUser: any) {
     try {
       if (!id) throw new BadRequestException('ID es requerido');
-
+      const where = this.roleFilterService.apply(loggedUser)
       const transaction = await this.prisma.transactions.findUnique({
-        where: { id },
+        where,
       });
 
       if (!transaction)
@@ -70,15 +72,15 @@ export class TransactionsService {
     }
   }
 
-  async update(id: string, data: UpdateTransactionDTO) {
+  async update(id: string, data: UpdateTransactionDTO, loggedUser: any) {
     try {
       if (!id) throw new BadRequestException('ID es requerido');
-
+      const where = this.roleFilterService.apply({loggedUser});
       // Verificamos existencia antes de actualizar
-      await this.findOne(id);
+      await this.findOne(id, loggedUser);
 
       return await this.prisma.transactions.update({
-        where: { id },
+        where,
         data,
       });
     } catch (error) {
@@ -94,15 +96,15 @@ export class TransactionsService {
     }
   }
 
-  async remove(id: string) {
+  async remove(id: string, loggedUser: any) {
     try {
       if (!id) throw new BadRequestException('ID es requerido');
-
+      const where = this.roleFilterService.apply(loggedUser);
       // Verificamos existencia antes de eliminar
-      await this.findOne(id);
-
+      await this.findOne(id, loggedUser);
+      
       return await this.prisma.transactions.delete({
-        where: { id },
+        where,
       });
     } catch (error) {
       if (
@@ -111,9 +113,7 @@ export class TransactionsService {
       ) {
         throw error;
       }
-      throw new InternalServerErrorException(
-        'Error al eliminar la transacción',
-      );
+      throw new InternalServerErrorException('Error al eliminar la transacción');
     }
   }
   async bulkCreate(transactions: CreateTransactionDTO[]) {
@@ -146,10 +146,12 @@ export class TransactionsService {
     }
   }
 
-  async getMonthlyStats() {
+  async getMonthlyStats(loggedUser: any) {
     try {
       // Traemos todas las transacciones con fecha y dirección
+      const where = this.roleFilterService.apply(loggedUser);
       const transactions = await this.prisma.transactions.findMany({
+        where,
         select: {
           amount: true,
           payment_date: true,
