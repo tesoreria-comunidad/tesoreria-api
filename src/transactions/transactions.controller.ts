@@ -7,6 +7,7 @@ import {
   Delete,
   ParseUUIDPipe,
   Patch,
+  Request,
 } from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
 import {
@@ -20,13 +21,13 @@ export class TransactionsController {
   constructor(private readonly transactionsService: TransactionsService) {}
 
   @Get()
-  async findAll() {
-    return this.transactionsService.findAll();
+  async findAll(@Request() req: any) {
+    return this.transactionsService.findAll(req.user);
   }
 
-  @Get(':id')
-  async findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.transactionsService.findOne(id);
+  @Get(':id') 
+  async findOne(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
+    return this.transactionsService.findOne(id, req.user);
   }
 
   @Post()
@@ -38,13 +39,14 @@ export class TransactionsController {
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateTransactionDTO,
+    @Request() req: any,
   ) {
-    return this.transactionsService.update(id, dto);
+    return this.transactionsService.update(id, dto, req.user);
   }
 
   @Delete(':id')
-  async remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.transactionsService.remove(id);
+  async remove(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
+    return this.transactionsService.remove(id, req.user);
   }
 
   @Post('bulk')
@@ -52,7 +54,7 @@ export class TransactionsController {
     return this.transactionsService.bulkCreate(body.transactions);
   }
   @Get('stats/monthly')
-  async getMonthlyStats() {
-    return this.transactionsService.getMonthlyStats();
+  async getMonthlyStats(@Request() req: any) {
+    return this.transactionsService.getMonthlyStats(req.user);
   }
 }

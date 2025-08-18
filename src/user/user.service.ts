@@ -10,13 +10,15 @@ import { UpdateUserDTO, CreateUserDTO } from './dto/user.dto';
 import { removeUndefined } from 'src/utils/remove-undefined.util';
 import { PrismaService } from 'src/prisma.service';
 import * as bcrypt from 'bcrypt';
+import { RoleFilterService } from 'src/services/RoleFilterService';
+
 @Injectable()
 export class UserService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private roleFilterService: RoleFilterService) {}
 
   public async getAllUser(loggedUser: any) {
   try {
-    const where = this.applyRoleFilter(loggedUser);
+    const where = this.roleFilterService.apply(loggedUser);
     return await this.prisma.user.findMany({
       where,
       include: {
@@ -33,7 +35,7 @@ export class UserService {
   public async getById(id: string, loggedUser: any) {
   try {
     if (!id) throw new BadRequestException('ID es requerido');
-    const where = this.applyRoleFilter(loggedUser, { id });
+    const where = this.roleFilterService.apply(loggedUser, { id });
     const user = await this.prisma.user.findFirst({
       where,
       include: { rama: true, folder: true, family: true },
@@ -156,7 +158,7 @@ export class UserService {
     loggedUser: any,
   ) {
     try {
-      const where = this.applyRoleFilter(loggedUser, { [key]: value });
+      const where = this.roleFilterService.apply(loggedUser, { [key]: value });
       return await this.prisma.user.findFirst({
         where,
         include: { rama: true, folder: true, family: true },
@@ -393,7 +395,7 @@ export class UserService {
   public async getUsersByFamily(familyId: string, loggedUser: any) {
     try {
       if (!familyId) throw new BadRequestException('ID de familia es requerido');
-      const where = this.applyRoleFilter(loggedUser, { id_family: familyId });
+      const where = this.roleFilterService.apply(loggedUser, { id_family: familyId });
       return await this.prisma.user.findMany({
         where,
         include: { rama: true, folder: true, family: true },
@@ -406,7 +408,7 @@ export class UserService {
   }
 
   public async getFamilyAdmin(familyId: string, loggedUser: any) {
-    const where = this.applyRoleFilter(loggedUser, {
+    const where = this.roleFilterService.apply(loggedUser, {
       id_family: familyId,
       family_role: 'ADMIN',
     });
@@ -419,7 +421,7 @@ export class UserService {
   }
 
   public async getFamilyAdmins(familyId: string, loggedUser: any) {
-    const where = this.applyRoleFilter(loggedUser, {
+    const where = this.roleFilterService.apply(loggedUser, {
       id_family: familyId,
       family_role: 'ADMIN',
     });
@@ -535,19 +537,6 @@ export class UserService {
         throw error;
       }
       throw new InternalServerErrorException('Error al degradar el administrador a miembro');
-    }
-  }
-
-  private applyRoleFilter(loggedUser: any, where: any = {}) {
-    switch (loggedUser.role) {
-      case 'MASTER':
-        return where; 
-      case 'DIRIGENTE':
-        return { ...where, id_rama: loggedUser.id_rama };
-      case 'BENEFICIARIO':
-        return { ...where, id: loggedUser.id };
-      default:
-        return where;
     }
   }
 
