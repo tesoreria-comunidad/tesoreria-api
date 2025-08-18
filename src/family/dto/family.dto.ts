@@ -54,9 +54,6 @@ export class CreateFamilyAdminUserDto {
 }
 
 export class CreateFamilyDto {
-    @IsString()
-    @IsOptional()
-    id_balance?: string;
 
     @IsString()
     @IsNotEmpty()
