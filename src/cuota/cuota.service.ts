@@ -6,27 +6,30 @@ import {
 } from '@nestjs/common';
 import { PrismaClient, Cuota } from '@prisma/client';
 import { CreateCuotaDTO, UpdateCuotaDTO } from './dto/cuota.dto';
+import { RoleFilterService } from 'src/services/RoleFilterService';
 
 @Injectable()
 export class CuotaService {
   private prisma = new PrismaClient();
+  private roleFilterService: RoleFilterService;
 
-  public async getAllCuota() {
+  public async getAllCuota(loggedUser: any) {
     try {
-      return await this.prisma.cuota.findMany();
+      const where = this.roleFilterService.apply(loggedUser);
+      return await this.prisma.cuota.findMany({ where });
     } catch (error) {
       throw new InternalServerErrorException('Error al obtener las cuotas');
     }
   }
 
-  public async getById(id: string) {
+  public async getById(id: string, loggedUser: any) {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-
+      const where = this.roleFilterService.apply(loggedUser);
       const cuota = await this.prisma.cuota.findFirst({
-        where: { id },
+        where,
       });
 
       if (!cuota) {
@@ -70,14 +73,14 @@ export class CuotaService {
     }
   }
 
-  public async update(id: string, data: UpdateCuotaDTO) {
+  public async update(id: string, data: UpdateCuotaDTO, loggedUser: any) {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-
+      const where = this.roleFilterService.apply(loggedUser);
       // Verificar que la cuota existe
-      await this.getById(id);
+      await this.getById(id, loggedUser);
 
       if (data.value !== undefined && data.value < 0) {
         throw new BadRequestException(
@@ -90,7 +93,7 @@ export class CuotaService {
       }
 
       return await this.prisma.cuota.update({
-        where: { id },
+        where,
         data,
       });
     } catch (error) {
@@ -104,17 +107,17 @@ export class CuotaService {
     }
   }
 
-  public async delete(id: string) {
+  public async delete(id: string, loggedUser: any) {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-
+      const where = this.roleFilterService.apply(loggedUser);
       // Verificar que la cuota existe
-      await this.getById(id);
+      await this.getById(id, loggedUser);
 
       return await this.prisma.cuota.delete({
-        where: { id },
+        where,
       });
     } catch (error) {
       if (
