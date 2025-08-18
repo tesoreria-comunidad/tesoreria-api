@@ -1,15 +1,23 @@
-import { Injectable, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { PrismaClient, Balance } from '@prisma/client';
 import { CreateBalanceDTO, UpdateBalanceDTO } from './dto/balance.dto';
 import { RoleFilterService } from 'src/services/RoleFilterService';
+import { PrismaService } from 'src/prisma.service';
 
 @Injectable()
 export class BalanceService {
-  private prisma = new PrismaClient();
-  private roleFilterService: RoleFilterService;
+  constructor(
+    private prisma: PrismaService,
+    private roleFilterService: RoleFilterService,
+  ) {}
   public async getAllBalances(loggedUser: any) {
     try {
-      const where = this.roleFilterService.apply(loggedUser)
+      const where = this.roleFilterService.apply(loggedUser);
       return await this.prisma.balance.findMany({
         where,
         include: {
@@ -40,7 +48,10 @@ export class BalanceService {
 
       return balance;
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
         throw error;
       }
       throw new InternalServerErrorException('Error al obtener el balance');
@@ -77,7 +88,10 @@ export class BalanceService {
         },
       });
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
         throw error;
       }
       throw new InternalServerErrorException('Error al actualizar el balance');
@@ -97,7 +111,10 @@ export class BalanceService {
         where,
       });
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
         throw error;
       }
       throw new InternalServerErrorException('Error al eliminar el balance');
