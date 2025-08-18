@@ -30,10 +30,19 @@ export class FamilyService {
 
       const balanceId = newBalance.id;
 
+      const validateRama = await this.prisma.rama.findFirst({
+        where: { id: data.manage_by },
+      });
+      if (!validateRama) {
+        throw new BadRequestException(
+          `La rama con ID ${data.manage_by} no existe`,
+        );
+      }
       // Crear la familia primero
       const family = await this.prisma.family.create({
         data: {
           id_balance: balanceId,
+          manage_by: data.manage_by,
           name: data.name,
           phone: data.phone,
         },
@@ -145,6 +154,7 @@ export class FamilyService {
         },
       });
     } catch (error) {
+      console.error('Error al obtener las familias:', error);
       throw new InternalServerErrorException('Error al obtener las familias');
     }
   }
