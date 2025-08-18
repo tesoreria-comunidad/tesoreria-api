@@ -11,7 +11,7 @@ export class FamilyController {
     constructor(private readonly familyService: FamilyService) { }
 
     @Post()
-    @Roles('master', 'dirigente')
+    @Roles('MASTER', 'DIRIGENTE')
     @HttpCode(HttpStatus.CREATED)
     create(@Body() createFamilyDto: CreateFamilyDto) {
         return this.familyService.create(createFamilyDto);
@@ -24,21 +24,21 @@ export class FamilyController {
     }
 
     @Get(':id')
-    @Roles('master', 'dirigente')
+    @Roles('MASTER', 'DIRIGENTE')
     @HttpCode(HttpStatus.OK)
     findOne(@Param('id') id: string) {
         return this.familyService.findOne(id);
     }
 
     @Patch(':id')
-    @Roles('master', 'dirigente')
+    @Roles('MASTER', 'DIRIGENTE')
     @HttpCode(HttpStatus.OK)
     update(@Param('id') id: string, @Body() updateFamilyDto: UpdateFamilyDto) {
         return this.familyService.update(id, updateFamilyDto);
     }
 
     @Delete(':id')
-    @Roles('master')
+    @Roles('MASTER')
     @HttpCode(HttpStatus.NO_CONTENT)
     remove(@Param('id') id: string) {
         return this.familyService.remove(id);

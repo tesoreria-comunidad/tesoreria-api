@@ -12,35 +12,35 @@ export class BalanceController {
 
 
   @Get()
-  @Roles('master', 'dirigente')
+  @Roles('MASTER', 'DIRIGENTE')
   @HttpCode(HttpStatus.OK)
   async getAllBalances() {
     return await this.balanceService.getAllBalances();
   }
 
   @Get(':id')
-  @Roles('master', 'dirigente')
+  @Roles('MASTER', 'DIRIGENTE')
   @HttpCode(HttpStatus.OK)
   async getBalanceById(@Param('id') id: string) {
     return await this.balanceService.getById(id);
   }
 
   @Post()
-  @Roles('master')
+  @Roles('MASTER')
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() body: CreateBalanceDTO) {
     return await this.balanceService.create(body);
   }
 
   @Patch(':id')
-  @Roles('master', 'dirigente')
+  @Roles('MASTER', 'DIRIGENTE')
   @HttpCode(HttpStatus.OK)
   async update(@Param('id') id: string, @Body() body: UpdateBalanceDTO) {
     return await this.balanceService.update(id, body);
   }
 
   @Delete(':id')
-  @Roles('master')
+  @Roles('MASTER')
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Param('id') id: string) {
     await this.balanceService.delete(id);

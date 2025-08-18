@@ -23,31 +23,31 @@ export class UserController {
   constructor(private readonly userService: UserService) { }
 
   @Get()
-  @Roles('master', 'dirigente')
+  @Roles('MASTER', 'DIRIGENTE')
   async getAllUsers() {
     return await this.userService.getAllUser();
   }
 
   @Get(':id')
-  @Roles('master', 'dirigente')
+  @Roles('MASTER', 'DIRIGENTE')
   async getUserById(@Param('id') id: string) {
     return await this.userService.getById(id);
   }
 
   @Post()
-  @Roles('master', 'dirigente')
+  @Roles('MASTER', 'DIRIGENTE')
   async createUser(@Body() body: CreateUserDTO) {
     return await this.userService.create(body as any);
   }
 
   @Patch(':id')
-  @Roles('master', 'dirigente')
+  @Roles('MASTER', 'DIRIGENTE')
   async update(@Param('id') id: string, @Body() body: UpdateUserDTO) {
     return await this.userService.update(id, body);
   }
 
   @Delete(':id')
-  @Roles('master', 'dirigente')
+  @Roles('MASTER', 'DIRIGENTE')
   async deleteUser(@Param('id') id: string) {
     try {
       const existingUser = await this.userService.getById(id);
@@ -62,7 +62,7 @@ export class UserController {
   }
 
   @Post('bulk')
-  @Roles('master', 'dirigente')
+  @Roles('MASTER', 'DIRIGENTE')
   async bulkCreateUsers(
     @Body() body: { users: CreateUserDTO[] },
     @Query() query: { id_rama?: string },

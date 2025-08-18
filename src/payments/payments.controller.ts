@@ -27,7 +27,7 @@ export class PaymentsController {
   ) { }
 
   @Post()
-  @Roles('master', 'dirigente', 'beneficiario')
+  @Roles('MASTER', 'DIRIGENTE', 'BENEFICIARIO')
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() createPaymentDto: CreatePaymentDto) {
     try {
@@ -46,28 +46,28 @@ export class PaymentsController {
   }
 
   @Get()
-  @Roles('master', 'dirigente')
+  @Roles('MASTER', 'DIRIGENTE')
   @HttpCode(HttpStatus.OK)
   findAll() {
     return this.paymentsService.findAll();
   }
 
   @Get(':id')
-  @Roles('master', 'dirigente')
+  @Roles('MASTER', 'DIRIGENTE')
   @HttpCode(HttpStatus.OK)
   findOne(@Param('id') id: string) {
     return this.paymentsService.findOne(id);
   }
 
   @Patch(':id')
-  @Roles('master', 'dirigente')
+  @Roles('MASTER', 'DIRIGENTE')
   @HttpCode(HttpStatus.OK)
   update(@Param('id') id: string, @Body() updatePaymentDto: UpdatePaymentDto) {
     return this.paymentsService.update(id, updatePaymentDto);
   }
 
   @Delete(':id')
-  @Roles('master')
+  @Roles('MASTER')
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id') id: string) {
     return this.paymentsService.remove(id);

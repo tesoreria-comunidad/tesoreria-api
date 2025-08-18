@@ -17,28 +17,28 @@ export class CuotaController {
   }
 
   @Get(':id')
-  @Roles('master')
+  @Roles('MASTER')
   @HttpCode(HttpStatus.OK)
   async getCuotaById(@Param('id') id: string) {
     return await this.cuotaService.getById(id);
   }
 
   @Post()
-  @Roles('master')
+  @Roles('MASTER')
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() body: CreateCuotaDTO) {
     return await this.cuotaService.create(body);
   }
 
   @Patch(':id')
-  @Roles('master')
+  @Roles('MASTER')
   @HttpCode(HttpStatus.OK)
   async update(@Param('id') id: string, @Body() body: UpdateCuotaDTO) {
     return await this.cuotaService.update(id, body);
   }
 
   @Delete(':id')
-  @Roles('master')
+  @Roles('MASTER')
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Param('id') id: string) {
     await this.cuotaService.delete(id);

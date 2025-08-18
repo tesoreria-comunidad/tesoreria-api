@@ -11,35 +11,35 @@ export class RamaController {
   constructor(private readonly ramaService: RamaService) { }
 
   @Get()
-  @Roles('master', 'dirigente', 'beneficiario')
+  @Roles('MASTER', 'DIRIGENTE', 'BENEFICIARIO')
   @HttpCode(HttpStatus.OK)
   async getAllRamas() {
     return await this.ramaService.getAllRama();
   }
 
   @Get(':id')
-  @Roles('master', 'dirigente', 'beneficiario')
+  @Roles('MASTER', 'DIRIGENTE', 'BENEFICIARIO')
   @HttpCode(HttpStatus.OK)
   async getRamaById(@Param('id') id: string) {
     return await this.ramaService.getById(id);
   }
 
   @Post()
-  @Roles('master')
+  @Roles('MASTER')
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() body: CreateRamaDTO) {
     return await this.ramaService.create(body);
   }
 
   @Patch(':id')
-  @Roles('master')
+  @Roles('MASTER')
   @HttpCode(HttpStatus.OK)
   async update(@Param('id') id: string, @Body() body: UpdateRamaDTO) {
     return await this.ramaService.update(id, body);
   }
 
   @Delete(':id')
-  @Roles('master')
+  @Roles('MASTER')
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Param('id') id: string) {
     await this.ramaService.delete(id);
