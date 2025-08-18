@@ -15,6 +15,7 @@ import { UserService } from './user/user.service';
 import { PrismaService } from './prisma.service';
 import { TransactionsModule } from './transactions/transactions.module';
 import { ServicesModule } from './services/services.module';
+import { CronJobsModule } from './cron-jobs/cron-jobs.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { ServicesModule } from './services/services.module';
     PersonModule,
     TransactionsModule,
     ServicesModule,
+    CronJobsModule,
   ],
   controllers: [UserController],
   providers: [UserService, PrismaService, AuthService, JwtService],
