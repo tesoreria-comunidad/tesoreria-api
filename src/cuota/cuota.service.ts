@@ -47,7 +47,7 @@ export class CuotaService {
 
   public async create(data: CreateCuotaDTO) {
     try {
-      if (data.cuota_amount < 0 || data.cfa_amount < 0) {
+      if (data.value < 0) {
         throw new BadRequestException('Los montos no pueden ser negativos');
       }
       const activeCuota = await this.prisma.cuota.findFirst({
@@ -79,7 +79,7 @@ export class CuotaService {
       // Verificar que la cuota existe
       await this.getById(id);
 
-      if (data.cuota_amount !== undefined && data.cuota_amount < 0) {
+      if (data.value !== undefined && data.value < 0) {
         throw new BadRequestException(
           'El monto de cuota no puede ser negativo',
         );

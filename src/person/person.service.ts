@@ -153,8 +153,7 @@ export class PersonService {
     } catch (error) {
       console.log('error at persons bulk create', error);
       throw new InternalServerErrorException(
-        `Error in persons bulkCreate: ${
-          error instanceof Error ? error.message : String(error)
+        `Error in persons bulkCreate: ${error instanceof Error ? error.message : String(error)
         }`,
       );
     }

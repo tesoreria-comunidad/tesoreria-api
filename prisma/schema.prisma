@@ -8,15 +8,15 @@ datasource db {
 }
 
 model User {
-  id          String   @id @default(uuid()) @db.Uuid
-  id_folder   String?  @unique @db.Uuid
-  id_rama     String?  @db.Uuid
-  id_family   String?  @unique @db.Uuid
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id          String     @id @default(uuid()) @db.Uuid
+  id_folder   String?    @unique @db.Uuid
+  id_rama     String?    @db.Uuid
+  id_family   String?    @unique @db.Uuid
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
   username    String
   password    String
-  email       String   @unique
+  email       String     @unique
   name        String
   last_name   String
   birthdate   DateTime
@@ -25,13 +25,13 @@ model User {
   phone       String
   gender      Gender
   dni         String
-  is_granted  Boolean  @default(false)
-  is_active   Boolean  @default(true)
+  is_granted  Boolean    @default(false)
+  is_active   Boolean    @default(true)
   role        Role
   family_role familyRole @default(ADMIN)
-  family      Family?  @relation(fields: [id_family], references: [id])
-  folder      Folder?  @relation(fields: [id_folder], references: [id])
-  rama        Rama?    @relation(fields: [id_rama], references: [id])
+  family      Family?    @relation(fields: [id_family], references: [id])
+  folder      Folder?    @relation(fields: [id_folder], references: [id])
+  rama        Rama?      @relation(fields: [id_rama], references: [id])
 }
 
 model Rama {
@@ -89,24 +89,33 @@ model Payment {
 }
 
 model Balance {
-  id              String   @id @default(uuid()) @db.Uuid
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @default(now())
-  cuota_balance   Float
-  cfa_balance     Float
-  custom_balance  Float
-  is_custom_cuota Boolean
-  is_custom_cfa   Boolean
-  family          Family?
+  id                String   @id @default(uuid()) @db.Uuid
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @default(now())
+  value             Float
+  custom_cuota      Float
+  cfa_balance_value Float
+  custom_cfa_value  Float
+  is_custom_cuota   Boolean
+  is_custom_cfa     Boolean
+  family            Family?
 }
 
 model Cuota {
-  id           String   @id @default(uuid()) @db.Uuid
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  cuota_amount Float
-  cfa_amount   Float
-  is_active    Boolean  @default(true)
+  id        String   @id @default(uuid()) @db.Uuid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  value     Float
+  is_active Boolean  @default(true)
+}
+
+model Cfa {
+  id        String   @id @default(uuid()) @db.Uuid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  value     Float
+  value_A1  Float
+  is_active Boolean  @default(true)
 }
 
 model Transactions {
