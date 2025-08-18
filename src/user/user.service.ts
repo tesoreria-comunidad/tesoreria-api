@@ -10,54 +10,43 @@ import { UpdateUserDTO, CreateUserDTO } from './dto/user.dto';
 import { removeUndefined } from 'src/utils/remove-undefined.util';
 import { PrismaService } from 'src/prisma.service';
 import * as bcrypt from 'bcrypt';
+import { RoleFilterService } from 'src/services/RoleFilterService';
+
 @Injectable()
 export class UserService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private roleFilterService: RoleFilterService) {}
 
-  public async getAllUser() {
-    try {
-      return await this.prisma.user.findMany({
-        include: {
-          folder: true,
-          rama: true,
-          family: true
-        },
-      });
-    } catch (error) {
-      throw new InternalServerErrorException('Error al obtener los usuarios');
-    }
+  public async getAllUser(loggedUser: any) {
+  try {
+    const where = this.roleFilterService.apply(loggedUser);
+    return await this.prisma.user.findMany({
+      where,
+      include: {
+        folder: true,
+        rama: true,
+        family: true
+      },
+    });
+  } catch (error) {
+    throw new InternalServerErrorException('Error al obtener los usuarios');
   }
+}
 
-  public async getById(id: string) {
-    try {
-      if (!id) {
-        throw new BadRequestException('ID es requerido');
-      }
-
-      const user = await this.prisma.user.findFirst({
-        where: { id },
-        include: { 
-          rama: true,
-          folder: true,
-          family: true 
-        },
-      });
-
-      if (!user) {
-        throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
-      }
-
-      return user;
-    } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof BadRequestException
-      ) {
-        throw error;
-      }
-      throw new InternalServerErrorException('Error al obtener el usuario');
-    }
+  public async getById(id: string, loggedUser: any) {
+  try {
+    if (!id) throw new BadRequestException('ID es requerido');
+    const where = this.roleFilterService.apply(loggedUser, { id });
+    const user = await this.prisma.user.findFirst({
+      where,
+      include: { rama: true, folder: true, family: true },
+    });
+    if (!user) throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+    return user;
+  } catch (error) {
+    if (error instanceof NotFoundException || error instanceof BadRequestException) throw error;
+    throw new InternalServerErrorException('Error al obtener el usuario');
   }
+}
 
   public async create(data: CreateUserDTO) {
     try {
@@ -164,35 +153,27 @@ export class UserService {
     }
   }
 
-  public async findBy({
-    key,
-    value,
-  }: {
-    key: keyof User;
-    value: string | number;
-  }) {
+  public async findBy(
+    { key, value }: { key: keyof User; value: string | number },
+    loggedUser: any,
+  ) {
     try {
-      return await this.prisma.user.findFirst({ 
-        where: { [key]: value },
-        include: {
-          rama: true,
-          folder: true,
-          family: true
-        }
+      const where = this.roleFilterService.apply(loggedUser, { [key]: value });
+      return await this.prisma.user.findFirst({
+        where,
+        include: { rama: true, folder: true, family: true },
       });
-    } catch (error) {
+    } catch {
       throw new InternalServerErrorException('Error en la búsqueda de usuario');
     }
   }
 
-  public async update(id: string, data: UpdateUserDTO) {
+  public async update(id: string, data: UpdateUserDTO, loggedUser: any) {
     try {
-      if (!id) {
-        throw new BadRequestException('ID es requerido');
-      }
+      if (!id) throw new BadRequestException('ID es requerido');
 
       // Verificar que el usuario existe
-      await this.getById(id);
+      await this.getById(id, loggedUser);
 
       // Si se actualiza username, verificar que no exista otro usuario con el mismo
       if (data.username) {
@@ -202,9 +183,7 @@ export class UserService {
             NOT: { id: id }
           }
         });
-        if (existingUser) {
-          throw new ConflictException('Ya existe otro usuario con ese nombre de usuario');
-        }
+        if (existingUser) throw new ConflictException('Ya existe otro usuario con ese nombre de usuario');
       }
 
       // Si se actualiza email, verificar que no exista otro usuario con el mismo
@@ -215,9 +194,7 @@ export class UserService {
             NOT: { id: id }
           }
         });
-        if (existingUser) {
-          throw new ConflictException('Ya existe otro usuario con ese email');
-        }
+        if (existingUser) throw new ConflictException('Ya existe otro usuario con ese email');
       }
 
       // Si se actualiza DNI, verificar que no exista otro usuario con el mismo
@@ -228,9 +205,7 @@ export class UserService {
             NOT: { id: id }
           }
         });
-        if (existingUser) {
-          throw new ConflictException('Ya existe otro usuario con ese DNI');
-        }
+        if (existingUser) throw new ConflictException('Ya existe otro usuario con ese DNI');
       }
 
       // Verificar que la rama existe si se proporciona
@@ -238,9 +213,7 @@ export class UserService {
         const ramaExists = await this.prisma.rama.findFirst({
           where: { id: data.id_rama }
         });
-        if (!ramaExists) {
-          throw new BadRequestException('La rama especificada no existe');
-        }
+        if (!ramaExists) throw new BadRequestException('La rama especificada no existe');
       }
 
       // Verificar que la carpeta existe si se proporciona
@@ -248,9 +221,7 @@ export class UserService {
         const folderExists = await this.prisma.folder.findFirst({
           where: { id: data.id_folder }
         });
-        if (!folderExists) {
-          throw new BadRequestException('La carpeta especificada no existe');
-        }
+        if (!folderExists) throw new BadRequestException('La carpeta especificada no existe');
       }
 
       // Verificar que la familia existe si se proporciona
@@ -258,9 +229,7 @@ export class UserService {
         const familyExists = await this.prisma.family.findFirst({
           where: { id: data.id_family }
         });
-        if (!familyExists) {
-          throw new BadRequestException('La familia especificada no existe');
-        }
+        if (!familyExists) throw new BadRequestException('La familia especificada no existe');
       }
 
       const cleanData = removeUndefined(data);
@@ -304,31 +273,29 @@ export class UserService {
     }
   }
 
-  public async delete(id: string) {
+  public async delete(id: string, loggedUser: any) {
     try {
-      if (!id) {
-        throw new BadRequestException('ID es requerido');
-      }
-
-      // Verificar que el usuario existe
-      await this.getById(id);
-
-      return await this.prisma.user.delete({
-        where: { id },
-      });
+      if (!id) throw new BadRequestException('ID es requerido');
+      await this.getById(id, loggedUser); 
+      return await this.prisma.user.delete({ where: { id } });
     } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof BadRequestException
-      ) {
-        throw error;
-      }
+      if (error instanceof NotFoundException || error instanceof BadRequestException) throw error;
       throw new InternalServerErrorException('Error al eliminar el usuario');
     }
   }
 
-  public async bulkCreate(users: CreateUserDTO[], id_rama?: string) {
+  public async bulkCreate(users: CreateUserDTO[], id_rama: string, loggedUser: any) {
     try {
+      // Si no es MASTER o DIRIGENTE, se bloquea la creacion
+      if (loggedUser.role === 'BENEFICIARIO') {
+        throw new BadRequestException('No tiene permisos para creación masiva');
+      }
+
+      // Si es DIRIGENTE, forzar id_rama a la suya
+      if (loggedUser.role === 'DIRIGENTE') {
+        id_rama = loggedUser.id_rama;
+      }
+      
       if (!Array.isArray(users) || users.length === 0) {
         throw new BadRequestException('Debe proporcionar una lista de usuarios');
       }
@@ -425,107 +392,52 @@ export class UserService {
     }
   }
 
-  public async getUsersByFamily(familyId: string) {
+  public async getUsersByFamily(familyId: string, loggedUser: any) {
     try {
-      if (!familyId) {
-        throw new BadRequestException('ID de familia es requerido');
-      }
-
-      // Verificar que la familia existe
-      const familyExists = await this.prisma.family.findFirst({
-        where: { id: familyId }
-      });
-      if (!familyExists) {
-        throw new NotFoundException('La familia especificada no existe');
-      }
-
+      if (!familyId) throw new BadRequestException('ID de familia es requerido');
+      const where = this.roleFilterService.apply(loggedUser, { id_family: familyId });
       return await this.prisma.user.findMany({
-        where: { id_family: familyId },
-        include: {
-          rama: true,
-          folder: true,
-          family: true
-        },
-        orderBy: [
-          { family_role: 'asc' }, // ADMIN primero, luego MEMBER
-          { name: 'asc' }
-        ]
+        where,
+        include: { rama: true, folder: true, family: true },
+        orderBy: [{ family_role: 'asc' }, { name: 'asc' }],
       });
     } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof BadRequestException
-      ) {
-        throw error;
-      }
-      throw new InternalServerErrorException('Error al obtener los usuarios de la familia');
+      if (error instanceof NotFoundException || error instanceof BadRequestException) throw error;
+      throw new InternalServerErrorException('Error al obtener usuarios de la familia');
     }
   }
 
-  public async getFamilyAdmin(familyId: string) {
-    try {
-      if (!familyId) {
-        throw new BadRequestException('ID de familia es requerido');
-      }
-
-      const admin = await this.prisma.user.findFirst({
-        where: { 
-          id_family: familyId,
-          family_role: 'ADMIN'
-        },
-        include: {
-          rama: true,
-          folder: true,
-          family: true
-        }
-      });
-
-      if (!admin) {
-        throw new NotFoundException('No se encontró un administrador para esta familia');
-      }
-
-      return admin;
-    } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof BadRequestException
-      ) {
-        throw error;
-      }
-      throw new InternalServerErrorException('Error al obtener el administrador de la familia');
-    }
+  public async getFamilyAdmin(familyId: string, loggedUser: any) {
+    const where = this.roleFilterService.apply(loggedUser, {
+      id_family: familyId,
+      family_role: 'ADMIN',
+    });
+    const admin = await this.prisma.user.findFirst({
+      where,
+      include: { rama: true, folder: true, family: true },
+    });
+    if (!admin) throw new NotFoundException('No se encontró un administrador para esta familia');
+    return admin;
   }
 
-  public async getFamilyAdmins(familyId: string) {
-    try {
-      if (!familyId) {
-        throw new BadRequestException('ID de familia es requerido');
-      }
-
-      const admins = await this.prisma.user.findMany({
-        where: { 
-          id_family: familyId,
-          family_role: 'ADMIN'
-        },
-        include: {
-          rama: true,
-          folder: true,
-          family: true
-        },
-        orderBy: { name: 'asc' }
-      });
-
-      return admins;
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      throw new InternalServerErrorException('Error al obtener los administradores de la familia');
-    }
+  public async getFamilyAdmins(familyId: string, loggedUser: any) {
+    const where = this.roleFilterService.apply(loggedUser, {
+      id_family: familyId,
+      family_role: 'ADMIN',
+    });
+    return await this.prisma.user.findMany({
+      where,
+      include: { rama: true, folder: true, family: true },
+      orderBy: { name: 'asc' },
+    });
   }
 
-  public async promoteToFamilyAdmin(userId: string, familyId: string) {
+  public async promoteToFamilyAdmin(userId: string, familyId: string, loggedUser: any) {
     try {
+      if (loggedUser.role === 'BENEFICIARIO') {
+        throw new BadRequestException('No tiene permisos para promover usuarios');
+      }
+
       if (!userId || !familyId) {
         throw new BadRequestException('ID de usuario e ID de familia son requeridos');
       }
@@ -572,8 +484,12 @@ export class UserService {
     }
   }
 
-  public async demoteFromFamilyAdmin(userId: string, familyId: string) {
+  public async demoteFromFamilyAdmin(userId: string, familyId: string, loggedUser: any) {
     try {
+      if (loggedUser.role === 'BENEFICIARIO') {
+        throw new BadRequestException('No tiene permisos para degradar usuarios');
+      }
+
       if (!userId || !familyId) {
         throw new BadRequestException('ID de usuario e ID de familia son requeridos');
       }
@@ -622,5 +538,20 @@ export class UserService {
       }
       throw new InternalServerErrorException('Error al degradar el administrador a miembro');
     }
+  }
+
+    // Necesario para uso en AuthService (sin restricciones de rol)
+  public async getByIdInternal(id: string) {
+    return this.prisma.user.findFirst({
+      where: { id },
+      include: { rama: true, folder: true, family: true },
+    });
+  }
+
+  public async findByInternal(where: Partial<User>) {
+    return this.prisma.user.findFirst({
+      where,
+      include: { rama: true, folder: true, family: true },
+    });
   }
 }

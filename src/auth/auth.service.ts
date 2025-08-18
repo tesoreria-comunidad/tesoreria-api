@@ -29,9 +29,8 @@ export class AuthService {
     return await this.userService.create(data);
   }
   public async validateUser(username: string, password: string) {
-    const userByUsername = await this.userService.findBy({
-      key: 'username',
-      value: username,
+    const userByUsername = await this.userService.findByInternal({
+      username,
     });
     if (userByUsername) {
       const match = await bcrypt.compare(password, userByUsername.password);
@@ -50,7 +49,7 @@ export class AuthService {
     return jwt.sign(payload, secret, { expiresIn: '7d' });
   }
   public async generateJWT(userData: User) {
-    const user = await this.userService.getById(userData.id);
+    const user = await this.userService.getByIdInternal(userData.id);
     if (!user) {
       throw new NotFoundException('User not found');
     }
@@ -77,7 +76,7 @@ export class AuthService {
       if (!payload) {
         throw new NotFoundException('Tenant does not exist');
       }
-      const user = await this.userService.getById((payload as any).id);
+      const user = await this.userService.getByIdInternal((payload as any).id);
       if (!user) throw new NotFoundException('User does not exist');
       return user;
     } catch (error) {
@@ -92,7 +91,7 @@ export class AuthService {
         secret: process.env.JWTKEY,
       });
 
-      const user = await this.userService.getById((payload as any).id);
+      const user = await this.userService.getByIdInternal((payload as any).id);
       if (!user) {
         throw new NotFoundException('Tenant is not defined');
       }
