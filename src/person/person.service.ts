@@ -10,17 +10,22 @@ import { CreatePersonDTO } from './dto/create-person.dto';
 import { UpdatePersonDTO } from './dto/update-person.dto';
 import { removeUndefined } from '../utils/remove-undefined.util';
 import * as bcrypt from 'bcrypt';
+import { RoleFilterService } from 'src/services/RoleFilterService';
 @Injectable()
 export class PersonService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private roleFilterService: RoleFilterService) {}
 
-  async getAllPersons(): Promise<Person[]> {
-    return this.prisma.person.findMany();
+  async getAllPersons(loggedUser : any): Promise<Person[]> {
+    const where = this.roleFilterService.apply(loggedUser);
+    return this.prisma.person.findMany({
+      where
+    });
   }
 
-  async getById(id: string): Promise<Person | null> {
+  async getById(id: string, loggedUser: any): Promise<Person | null> {
+    const where = this.roleFilterService.apply(loggedUser);
     return this.prisma.person.findUnique({
-      where: { id },
+      where,
     });
   }
 
@@ -30,23 +35,26 @@ export class PersonService {
     });
   }
 
-  async update(id: string, data: UpdatePersonDTO): Promise<Person> {
+  async update(id: string, data: UpdatePersonDTO, loggedUser: any): Promise<Person> {
+    const where = this.roleFilterService.apply(loggedUser);
     const cleanData = removeUndefined(data);
     return this.prisma.person.update({
-      where: { id },
+      where,
       data: cleanData,
     });
   }
 
-  async delete(id: string): Promise<Person> {
+  async delete(id: string, loggedUser: any): Promise<Person> {
+    const where = this.roleFilterService.apply(loggedUser);
     return this.prisma.person.delete({
-      where: { id },
+      where,
     });
   }
 
-  async findByDni(dni: string): Promise<Person | null> {
+  async findByDni(dni: string, loggedUser: any): Promise<Person | null> {
+    const where = this.roleFilterService.apply(loggedUser);
     return this.prisma.person.findFirst({
-      where: { dni },
+      where,
     });
   }
 
@@ -95,13 +103,13 @@ export class PersonService {
   async bulkCreate(data: {
     persons: CreatePersonDTO[];
     id_rama?: string;
-  }): Promise<Person[]> {
+  }, loggedUser: any): Promise<Person[]> {
     const { persons, id_rama } = data;
-
+    const where = this.roleFilterService.apply(loggedUser);
     try {
       if (id_rama) {
         const existRama = await this.prisma.rama.findFirst({
-          where: { id: id_rama },
+          where,
         });
         if (!existRama) {
           throw new NotFoundException(

@@ -10,6 +10,8 @@ import {
   NotFoundException,
   BadRequestException,
   Query,
+  Request,
+  Req
 } from '@nestjs/common';
 import { PersonService } from './person.service';
 import { AuthGuard } from '../auth/guards/auth.guard';
@@ -22,13 +24,13 @@ export class PersonController {
   constructor(private readonly personService: PersonService) {}
 
   @Get()
-  async getAllPersons() {
-    return await this.personService.getAllPersons();
+  async getAllPersons(@Request() req: any) {
+    return await this.personService.getAllPersons(req.user);
   }
 
   @Get(':id')
-  async getPersonById(@Param('id') id: string) {
-    return await this.personService.getById(id);
+  async getPersonById(@Param('id') id: string, @Request() req: any) {
+    return await this.personService.getById(id, req.user);
   }
 
   @Post()
@@ -37,40 +39,41 @@ export class PersonController {
   }
 
   @Patch(':id')
-  async updatePerson(@Param('id') id: string, @Body() body: UpdatePersonDTO) {
+  async updatePerson(@Param('id') id: string, @Body() body: UpdatePersonDTO, @Request() req: any) {
     try {
-      const existingPerson = await this.personService.getById(id);
+      const existingPerson = await this.personService.getById(id, req.user);
       if (!existingPerson) {
         throw new NotFoundException('Persona no encontrada');
       }
-      return await this.personService.update(id, body);
+      return await this.personService.update(id, body, req.user);
     } catch (error) {
       throw error;
     }
   }
 
   @Delete(':id')
-  async deletePerson(@Param('id') id: string) {
+  async deletePerson(@Param('id') id: string, @Request() req: any) {
     try {
-      const existingPerson = await this.personService.getById(id);
+      const existingPerson = await this.personService.getById(id, req.user);
       if (!existingPerson) {
         throw new NotFoundException('Persona no encontrada');
       }
-      return await this.personService.delete(id);
+      return await this.personService.delete(id, req.user);
     } catch (error) {
       throw error;
     }
   }
 
   @Get('dni/:dni')
-  async getPersonByDni(@Param('dni') dni: string) {
-    return await this.personService.findByDni(dni);
+  async getPersonByDni(@Param('dni') dni: string, @Request() req: any) {
+    return await this.personService.findByDni(dni, req.user);
   }
 
   @Post('bulk')
   async bulkCreatePersons(
     @Body() body: { persons: CreatePersonDTO[] },
     @Query() query: { id_rama?: string },
+    @Request() req: any
   ) {
     const { id_rama } = query;
     const { persons } = body;
@@ -96,6 +99,6 @@ export class PersonController {
       }
       emailSet.add(person.email);
     }
-    return await this.personService.bulkCreate({ persons, id_rama });
+    return await this.personService.bulkCreate({ persons, id_rama }, req.user);
   }
 }

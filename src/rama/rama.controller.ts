@@ -1,8 +1,7 @@
-import { Body, Controller, Delete, Get, Param, Post, Patch, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Patch, UseGuards, HttpCode, HttpStatus, Request} from '@nestjs/common';
 import { RamaService } from './rama.service';
 import { CreateRamaDTO, UpdateRamaDTO } from './dto/rama.dto';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
-
 @UseGuards(AuthGuard)
 @Controller('rama')
 export class RamaController {
@@ -10,14 +9,14 @@ export class RamaController {
 
   @Get()
   @HttpCode(HttpStatus.OK)
-  async getAllRamas() {
-    return await this.ramaService.getAllRama();
+  async getAllRamas(@Request() req: any) {
+    return await this.ramaService.getAllRama(req.user);
   }
 
   @Get(':id')
   @HttpCode(HttpStatus.OK)
-  async getRamaById(@Param('id') id: string) {
-    return await this.ramaService.getById(id);
+  async getRamaById(@Param('id') id: string, @Request() req: any) {
+    return await this.ramaService.getById(id, req.user);
   }
 
   @Post()
@@ -28,14 +27,14 @@ export class RamaController {
 
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
-  async update(@Param('id') id: string, @Body() body: UpdateRamaDTO) {
-    return await this.ramaService.update(id, body);
+  async update(@Param('id') id: string, @Body() body: UpdateRamaDTO, @Request() req: any) {
+    return await this.ramaService.update(id, body, req.user);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async delete(@Param('id') id: string) {
-    await this.ramaService.delete(id);
+  async delete(@Param('id') id: string, @Request() req: any) {
+    await this.ramaService.delete(id, req.user);
     return;
   }
 }
