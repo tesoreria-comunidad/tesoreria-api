@@ -16,21 +16,19 @@ export class FamilyService {
   constructor(
     private prisma: PrismaService,
     private balanceService: BalanceService,
-  ) { }
+  ) {}
   public async create(data: CreateFamilyDto): Promise<Family> {
     try {
-
-
       const newBalance = await this.balanceService.create({
-        cuota_balance: 0,
-        cfa_balance: 0,
-        custom_balance: 0,
+        value: 0,
+        cfa_balance_value: 0,
+        custom_cuota: 0,
+        custom_cfa_value: 0,
         is_custom_cuota: false,
         is_custom_cfa: false,
       });
 
       const balanceId = newBalance.id;
-
 
       // Crear la familia primero
       const family = await this.prisma.family.create({
@@ -71,29 +69,35 @@ export class FamilyService {
     try {
       // Verificar si ya existe un usuario con el mismo username
       const existingUserByUsername = await this.prisma.user.findFirst({
-        where: { username: adminUserData.username.trim() }
+        where: { username: adminUserData.username.trim() },
       });
 
       if (existingUserByUsername) {
-        throw new ConflictException(`Ya existe un usuario con el username: ${adminUserData.username}`);
+        throw new ConflictException(
+          `Ya existe un usuario con el username: ${adminUserData.username}`,
+        );
       }
 
       // Verificar si ya existe un usuario con el mismo email
       const existingUserByEmail = await this.prisma.user.findFirst({
-        where: { email: adminUserData.email.trim().toLowerCase() }
+        where: { email: adminUserData.email.trim().toLowerCase() },
       });
 
       if (existingUserByEmail) {
-        throw new ConflictException(`Ya existe un usuario con el email: ${adminUserData.email}`);
+        throw new ConflictException(
+          `Ya existe un usuario con el email: ${adminUserData.email}`,
+        );
       }
 
       // Verificar si ya existe un usuario con el mismo DNI
       const existingUserByDNI = await this.prisma.user.findFirst({
-        where: { dni: adminUserData.dni.trim() }
+        where: { dni: adminUserData.dni.trim() },
       });
 
       if (existingUserByDNI) {
-        throw new ConflictException(`Ya existe un usuario con el DNI: ${adminUserData.dni}`);
+        throw new ConflictException(
+          `Ya existe un usuario con el DNI: ${adminUserData.dni}`,
+        );
       }
 
       // Hash de la contraseña
@@ -125,7 +129,9 @@ export class FamilyService {
       if (error instanceof ConflictException) {
         throw error;
       }
-      throw new InternalServerErrorException('Error al crear el usuario administrador de la familia');
+      throw new InternalServerErrorException(
+        'Error al crear el usuario administrador de la familia',
+      );
     }
   }
 

@@ -17,15 +17,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  public async register(user: User) {
-    const hashPassword = await bcrypt.hash(
-      user.password,
-      +process.env.HASH_SALT,
-    );
-    const data: User = {
-      ...user,
-      password: hashPassword,
-    };
+  public async register(data: User) {
     return await this.userService.create(data);
   }
   public async validateUser(username: string, password: string) {
@@ -34,6 +26,7 @@ export class AuthService {
     });
     if (userByUsername) {
       const match = await bcrypt.compare(password, userByUsername.password);
+
       if (match) return userByUsername;
     }
 
