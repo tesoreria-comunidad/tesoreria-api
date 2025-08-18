@@ -1,14 +1,17 @@
 import { Injectable, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { PrismaClient, Balance } from '@prisma/client';
 import { CreateBalanceDTO, UpdateBalanceDTO } from './dto/balance.dto';
+import { RoleFilterService } from 'src/services/RoleFilterService';
 
 @Injectable()
 export class BalanceService {
   private prisma = new PrismaClient();
-
-  public async getAllBalances() {
+  private roleFilterService: RoleFilterService;
+  public async getAllBalances(loggedUser: any) {
     try {
+      const where = this.roleFilterService.apply(loggedUser)
       return await this.prisma.balance.findMany({
+        where,
         include: {
           family: true,
         },
@@ -18,14 +21,14 @@ export class BalanceService {
     }
   }
 
-  public async getById(id: string) {
+  public async getById(id: string, loggedUser: any) {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-
+      const where = this.roleFilterService.apply(loggedUser);
       const balance = await this.prisma.balance.findFirst({
-        where: { id },
+        where,
         include: {
           family: true,
         },
@@ -57,17 +60,17 @@ export class BalanceService {
     }
   }
 
-  public async update(id: string, data: UpdateBalanceDTO) {
+  public async update(id: string, data: UpdateBalanceDTO, loggedUser: any) {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-
+      const where = this.roleFilterService.apply(loggedUser);
       // Verificar que el balance existe
-      await this.getById(id);
+      await this.getById(id, loggedUser);
 
       return await this.prisma.balance.update({
-        where: { id },
+        where,
         data,
         include: {
           family: true,
@@ -81,17 +84,17 @@ export class BalanceService {
     }
   }
 
-  public async delete(id: string) {
+  public async delete(id: string, loggedUser: any) {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-
+      const where = this.roleFilterService.apply(loggedUser);
       // Verificar que el balance existe
-      await this.getById(id);
+      await this.getById(id, loggedUser);
 
       return await this.prisma.balance.delete({
-        where: { id },
+        where,
       });
     } catch (error) {
       if (error instanceof NotFoundException || error instanceof BadRequestException) {
