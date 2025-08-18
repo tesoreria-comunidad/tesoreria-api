@@ -71,6 +71,7 @@ model Family {
   updatedAt    DateTime       @updatedAt
   name         String
   phone        String
+  manage_by    String
   balance      Balance        @relation(fields: [id_balance], references: [id])
   payments     Payment[]
   transactions Transactions[]
