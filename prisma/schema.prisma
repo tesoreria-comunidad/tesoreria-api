@@ -28,6 +28,7 @@ model User {
   is_granted  Boolean  @default(false)
   is_active   Boolean  @default(true)
   role        Role
+  family_role familyRole @default(ADMIN)
   family      Family?  @relation(fields: [id_family], references: [id])
   folder      Folder?  @relation(fields: [id_folder], references: [id])
   rama        Rama?    @relation(fields: [id_rama], references: [id])
@@ -152,4 +153,10 @@ enum Role {
   DIRIGENTE
   BENEFICIARIO
   MASTER
+  FAMILY
+}
+
+enum familyRole {
+  ADMIN
+  MEMBER
 }

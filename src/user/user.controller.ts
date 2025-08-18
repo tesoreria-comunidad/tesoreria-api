@@ -10,6 +10,10 @@ import {
   BadRequestException,
   NotFoundException,
   Query,
+  HttpCode,
+  HttpStatus,
+  Request,
+
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { UpdateUserDTO, CreateUserDTO } from './dto/user.dto';
@@ -23,31 +27,30 @@ export class UserController {
   constructor(private readonly userService: UserService) { }
 
   @Get()
+  @HttpCode(HttpStatus.OK)
   @Roles('MASTER', 'DIRIGENTE')
-  async getAllUsers() {
-    return await this.userService.getAllUser();
+
+  async getAllUsers(@Request() req: any) {
+    return await this.userService.getAllUser(req.user);
+
   }
 
   @Get(':id')
-  @Roles('MASTER', 'DIRIGENTE')
   async getUserById(@Param('id') id: string) {
     return await this.userService.getById(id);
   }
 
   @Post()
-  @Roles('MASTER', 'DIRIGENTE')
   async createUser(@Body() body: CreateUserDTO) {
-    return await this.userService.create(body as any);
+    return await this.userService.create(body);
   }
 
   @Patch(':id')
-  @Roles('MASTER', 'DIRIGENTE')
   async update(@Param('id') id: string, @Body() body: UpdateUserDTO) {
     return await this.userService.update(id, body);
   }
 
   @Delete(':id')
-  @Roles('MASTER', 'DIRIGENTE')
   async deleteUser(@Param('id') id: string) {
     try {
       const existingUser = await this.userService.getById(id);
@@ -62,10 +65,10 @@ export class UserController {
   }
 
   @Post('bulk')
-  @Roles('MASTER', 'DIRIGENTE')
   async bulkCreateUsers(
     @Body() body: { users: CreateUserDTO[] },
-    @Query() query: { id_rama?: string },
+    @Query() query: { id_rama: string },
+    @Request() req: any,
   ) {
     const { users } = body;
     const { id_rama } = query;
@@ -74,7 +77,7 @@ export class UserController {
       throw new BadRequestException('Debe proporcionar una lista de usuarios');
     }
 
-    /** 🔹 Validar usernames duplicados en el payload */
+    /** Validar usernames duplicados en el payload */
     const usernames = users.map((user) => user.username);
     const duplicateUsernames = usernames.filter(
       (username, index) => usernames.indexOf(username) !== index,
@@ -85,7 +88,7 @@ export class UserController {
       );
     }
 
-    /** 🔹 Validar emails duplicados en el payload */
+    /** Validar emails duplicados en el payload */
     const emails = users
       .map((user) => user.email?.toLowerCase())
       .filter(Boolean);
@@ -98,7 +101,7 @@ export class UserController {
       );
     }
 
-    /** 🔹 Validar DNIs duplicados en el payload */
+    /** Validar DNIs duplicados en el payload */
     const dniSet = new Set<string>();
     for (const user of users) {
       if (dniSet.has(user.dni)) {
@@ -109,6 +112,44 @@ export class UserController {
       dniSet.add(user.dni);
     }
 
-    return await this.userService.bulkCreate(users, id_rama);
+    return await this.userService.bulkCreate(users, id_rama, req.user);
+  }
+
+  @Get('family/:familyId')
+  @HttpCode(HttpStatus.OK)
+  async getUsersByFamily(@Param('familyId') familyId: string, @Request() req: any) {
+    return await this.userService.getUsersByFamily(familyId, req.user);
+  }
+
+  @Get('family/:familyId/admin')
+  @HttpCode(HttpStatus.OK)
+  async getFamilyAdmin(@Param('familyId') familyId: string, @Request() req: any) {
+    return await this.userService.getFamilyAdmin(familyId, req.user);
+  }
+
+  @Get('family/:familyId/admins')
+  @HttpCode(HttpStatus.OK)
+  async getFamilyAdmins(@Param('familyId') familyId: string, @Request() req: any) {
+    return await this.userService.getFamilyAdmins(familyId, req.user);
+  }
+
+  @Patch('family/:familyId/promote/:userId')
+  @HttpCode(HttpStatus.OK)
+  async promoteToFamilyAdmin(
+    @Param('familyId') familyId: string,
+    @Param('userId') userId: string,
+    @Request() req: any
+  ) {
+    return await this.userService.promoteToFamilyAdmin(userId, familyId, req.user);
+  }
+
+  @Patch('family/:familyId/demote/:userId')
+  @HttpCode(HttpStatus.OK)
+  async demoteFromFamilyAdmin(
+    @Param('familyId') familyId: string,
+    @Param('userId') userId: string,
+    @Request() req: any
+  ) {
+    return await this.userService.demoteFromFamilyAdmin(userId, familyId, req.user);
   }
 }

@@ -14,6 +14,7 @@ import { UserController } from './user/user.controller';
 import { UserService } from './user/user.service';
 import { PrismaService } from './prisma.service';
 import { TransactionsModule } from './transactions/transactions.module';
+import { ServicesModule } from './services/services.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { TransactionsModule } from './transactions/transactions.module';
     PaymentsModule,
     PersonModule,
     TransactionsModule,
+    ServicesModule,
   ],
   controllers: [UserController],
   providers: [UserService, PrismaService, AuthService, JwtService],

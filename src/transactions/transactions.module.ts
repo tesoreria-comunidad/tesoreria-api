@@ -6,9 +6,10 @@ import { FamilyModule } from 'src/family/family.module';
 import { UserModule } from 'src/user/user.module';
 import { BalanceModule } from 'src/balance/balance.module';
 import { PrismaService } from 'src/prisma.service';
+import { ServicesModule } from 'src/services/services.module';
 
 @Module({
-  imports: [AuthModule, FamilyModule, UserModule, BalanceModule],
+  imports: [AuthModule, FamilyModule, UserModule, BalanceModule, ServicesModule],
   controllers: [TransactionsController],
   providers: [TransactionsService, PrismaService],
 })
