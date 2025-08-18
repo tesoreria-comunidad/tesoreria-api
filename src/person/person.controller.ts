@@ -15,28 +15,34 @@ import { PersonService } from './person.service';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { CreatePersonDTO } from './dto/create-person.dto';
 import { UpdatePersonDTO } from './dto/update-person.dto';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
 
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, RolesGuard)
 @Controller('person')
 export class PersonController {
-  constructor(private readonly personService: PersonService) {}
+  constructor(private readonly personService: PersonService) { }
 
   @Get()
+  @Roles('MASTER', 'DIRIGENTE')
   async getAllPersons() {
     return await this.personService.getAllPersons();
   }
 
   @Get(':id')
+  @Roles('MASTER', 'DIRIGENTE')
   async getPersonById(@Param('id') id: string) {
     return await this.personService.getById(id);
   }
 
   @Post()
+  @Roles('MASTER', 'DIRIGENTE')
   async createPerson(@Body() body: CreatePersonDTO) {
     return await this.personService.create(body);
   }
 
   @Patch(':id')
+  @Roles('MASTER', 'DIRIGENTE')
   async updatePerson(@Param('id') id: string, @Body() body: UpdatePersonDTO) {
     try {
       const existingPerson = await this.personService.getById(id);
@@ -50,6 +56,7 @@ export class PersonController {
   }
 
   @Delete(':id')
+  @Roles('MASTER', 'DIRIGENTE')
   async deletePerson(@Param('id') id: string) {
     try {
       const existingPerson = await this.personService.getById(id);

@@ -18,45 +18,57 @@ import {
 import { UserService } from './user.service';
 import { UpdateUserDTO, CreateUserDTO } from './dto/user.dto';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
 
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, RolesGuard)
 @Controller('user')
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(private readonly userService: UserService) { }
 
   @Get()
   @HttpCode(HttpStatus.OK)
+  @Roles('MASTER', 'DIRIGENTE')
   async getAllUsers(@Request() req: any) {
     return await this.userService.getAllUser(req.user);
+
   }
 
   @Get(':id')
-  @HttpCode(HttpStatus.OK)
+  @Roles('MASTER', 'DIRIGENTE')
   async getUserById(@Param('id') id: string, @Request() req: any) {
     return await this.userService.getById(id, req.user);
   }
 
   @Post()
-  @HttpCode(HttpStatus.CREATED)
+  @Roles('MASTER', 'DIRIGENTE')
   async createUser(@Body() body: CreateUserDTO) {
     return await this.userService.create(body);
   }
 
   @Patch(':id')
-  @HttpCode(HttpStatus.OK)
+  @Roles('MASTER', 'DIRIGENTE')
   async update(@Param('id') id: string, @Body() body: UpdateUserDTO, @Request() req: any) {
     return await this.userService.update(id, body, req.user);
   }
 
   @Delete(':id')
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @Roles('MASTER', 'DIRIGENTE')
   async deleteUser(@Param('id') id: string, @Request() req: any) {
-    await this.userService.delete(id, req.user);
-    return;
+    try {
+      const existingUser = await this.userService.getById(id, req.user);
+      if (!existingUser) {
+        throw new NotFoundException('Usuario no encontrado');
+      }
+
+      return await this.userService.delete(id, req.user);
+    } catch (error) {
+      throw error;
+    }
   }
 
   @Post('bulk')
-  @HttpCode(HttpStatus.CREATED)
+  @Roles('MASTER', 'DIRIGENTE')
   async bulkCreateUsers(
     @Body() body: { users: CreateUserDTO[] },
     @Query() query: { id_rama: string },
@@ -106,25 +118,28 @@ export class UserController {
 
     return await this.userService.bulkCreate(users, id_rama, req.user);
   }
-
+  @Roles('MASTER', 'DIRIGENTE')
   @Get('family/:familyId')
   @HttpCode(HttpStatus.OK)
   async getUsersByFamily(@Param('familyId') familyId: string, @Request() req: any) {
     return await this.userService.getUsersByFamily(familyId, req.user);
   }
 
+  @Roles('MASTER', 'DIRIGENTE')
   @Get('family/:familyId/admin')
   @HttpCode(HttpStatus.OK)
   async getFamilyAdmin(@Param('familyId') familyId: string, @Request() req: any) {
     return await this.userService.getFamilyAdmin(familyId, req.user);
   }
 
+  @Roles('MASTER', 'DIRIGENTE')
   @Get('family/:familyId/admins')
   @HttpCode(HttpStatus.OK)
   async getFamilyAdmins(@Param('familyId') familyId: string, @Request() req: any) {
     return await this.userService.getFamilyAdmins(familyId, req.user);
   }
 
+  @Roles('MASTER', 'DIRIGENTE')
   @Patch('family/:familyId/promote/:userId')
   @HttpCode(HttpStatus.OK)
   async promoteToFamilyAdmin(
@@ -135,6 +150,7 @@ export class UserController {
     return await this.userService.promoteToFamilyAdmin(userId, familyId, req.user);
   }
 
+  @Roles('MASTER', 'DIRIGENTE')
   @Patch('family/:familyId/demote/:userId')
   @HttpCode(HttpStatus.OK)
   async demoteFromFamilyAdmin(

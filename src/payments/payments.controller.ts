@@ -15,16 +15,19 @@ import { PaymentsService } from './payments.service';
 import { CreatePaymentDto, UpdatePaymentDto } from './dto/payments.dto';
 import { FamilyService } from 'src/family/family.service';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
 
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, RolesGuard)
 @Controller('payments')
 export class PaymentsController {
   constructor(
     private readonly paymentsService: PaymentsService,
     private readonly familyService: FamilyService,
-  ) {}
+  ) { }
 
   @Post()
+  @Roles('MASTER', 'DIRIGENTE', 'BENEFICIARIO')
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() createPaymentDto: CreatePaymentDto) {
     try {
@@ -43,24 +46,28 @@ export class PaymentsController {
   }
 
   @Get()
+  @Roles('MASTER', 'DIRIGENTE')
   @HttpCode(HttpStatus.OK)
   findAll() {
     return this.paymentsService.findAll();
   }
 
   @Get(':id')
+  @Roles('MASTER', 'DIRIGENTE')
   @HttpCode(HttpStatus.OK)
   findOne(@Param('id') id: string) {
     return this.paymentsService.findOne(id);
   }
 
   @Patch(':id')
+  @Roles('MASTER', 'DIRIGENTE')
   @HttpCode(HttpStatus.OK)
   update(@Param('id') id: string, @Body() updatePaymentDto: UpdatePaymentDto) {
     return this.paymentsService.update(id, updatePaymentDto);
   }
 
   @Delete(':id')
+  @Roles('MASTER')
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id') id: string) {
     return this.paymentsService.remove(id);
