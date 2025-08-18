@@ -10,6 +10,7 @@ import {
   HttpCode,
   HttpStatus,
   NotFoundException,
+  Request,
 } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { CreatePaymentDto, UpdatePaymentDto } from './dto/payments.dto';
@@ -48,28 +49,28 @@ export class PaymentsController {
   @Get()
   @Roles('MASTER', 'DIRIGENTE')
   @HttpCode(HttpStatus.OK)
-  findAll() {
-    return this.paymentsService.findAll();
+  findAll(@Request() req: any) {
+    return this.paymentsService.findAll(req.user);
   }
 
   @Get(':id')
   @Roles('MASTER', 'DIRIGENTE')
   @HttpCode(HttpStatus.OK)
-  findOne(@Param('id') id: string) {
-    return this.paymentsService.findOne(id);
+  findOne(@Param('id') id: string, @Request() req: any) {
+    return this.paymentsService.findOne(id, req.user);
   }
 
   @Patch(':id')
   @Roles('MASTER', 'DIRIGENTE')
   @HttpCode(HttpStatus.OK)
-  update(@Param('id') id: string, @Body() updatePaymentDto: UpdatePaymentDto) {
-    return this.paymentsService.update(id, updatePaymentDto);
+  update(@Param('id') id: string, @Body() updatePaymentDto: UpdatePaymentDto, @Request() req: any) {
+    return this.paymentsService.update(id, updatePaymentDto, req.user);
   }
 
   @Delete(':id')
   @Roles('MASTER')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param('id') id: string) {
-    return this.paymentsService.remove(id);
+  remove(@Param('id') id: string, @Request() req: any) {
+    return this.paymentsService.remove(id, req.user);
   }
 }
