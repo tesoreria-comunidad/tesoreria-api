@@ -1,14 +1,18 @@
 import { Injectable, NotFoundException, BadRequestException, InternalServerErrorException, ConflictException } from '@nestjs/common';
 import { PrismaClient, Rama } from '@prisma/client';
 import { CreateRamaDTO, UpdateRamaDTO } from './dto/rama.dto';
+import { RoleFilterService } from 'src/services/RoleFilterService';
 
 @Injectable()
 export class RamaService {
   private prisma = new PrismaClient();
+  private roleFilterService: RoleFilterService;
 
-  public async getAllRama() {
+  public async getAllRama(loggedUser: any) {
     try {
+      const where = this.roleFilterService.apply(loggedUser)
       return await this.prisma.rama.findMany({
+        where,
         include: {
           users: true,
         },
@@ -18,14 +22,14 @@ export class RamaService {
     }
   }
 
-  public async getById(id: string) {
+  public async getById(id: string, loggedUser: any) {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-
+      const where = this.roleFilterService.apply(loggedUser);
       const rama = await this.prisma.rama.findFirst({ 
-        where: { id },
+        where,
         include: {
           users: true,
         },
@@ -76,14 +80,14 @@ export class RamaService {
     }
   }
 
-  public async update(id: string, data: UpdateRamaDTO) {
+  public async update(id: string, data: UpdateRamaDTO, loggedUser: any) {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-
+      const where = this.roleFilterService.apply(loggedUser);
       // Verificar que la rama existe
-      await this.getById(id);
+      await this.getById(id, loggedUser);
 
       if (data.name !== undefined) {
         if (!data.name || data.name.trim().length === 0) {
@@ -104,7 +108,7 @@ export class RamaService {
       }
 
       return await this.prisma.rama.update({
-        where: { id },
+        where,
         data: {
           ...data,
           name: data.name ? data.name.trim() : undefined
@@ -121,14 +125,14 @@ export class RamaService {
     }
   }
 
-  public async delete(id: string) {
+  public async delete(id: string, loggedUser: any) {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-
+      const where = this.roleFilterService.apply(loggedUser);
       // Verificar que la rama existe
-      const rama = await this.getById(id);
+      const rama = await this.getById(id, loggedUser);
 
       // Verificar si tiene usuarios asociados
       if (rama.users && rama.users.length > 0) {
@@ -136,7 +140,7 @@ export class RamaService {
       }
 
       return await this.prisma.rama.delete({
-        where: { id },
+        where,
       });
     } catch (error) {
       if (error instanceof NotFoundException || error instanceof BadRequestException || error instanceof ConflictException) {
