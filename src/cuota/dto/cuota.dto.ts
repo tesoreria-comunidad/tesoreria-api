@@ -18,13 +18,13 @@ export class UpdateCuotaDTO {
   @IsNumber(
     { maxDecimalPlaces: 2 },
     {
-      message: 'cuota_amount debe ser un número válido con máximo 2 decimales',
+      message: 'value debe ser un número válido con máximo 2 decimales',
     },
   )
-  @Min(0, { message: 'cuota_amount no puede ser negativo' })
+  @Min(0, { message: 'value no puede ser negativo' })
   @IsOptional()
   @Transform(({ value }) => (value !== undefined ? parseFloat(value) : value))
-  cuota_amount?: number;
+  value?: number;
 
   @IsNumber(
     { maxDecimalPlaces: 2 },
