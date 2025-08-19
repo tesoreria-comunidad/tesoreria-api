@@ -5,11 +5,11 @@ export class CreateCuotaDTO {
   @IsNumber(
     { maxDecimalPlaces: 2 },
     {
-      message: 'cuota_amount debe ser un número válido con máximo 2 decimales',
+      message: 'value debe ser un número válido con máximo 2 decimales',
     },
   )
-  @Min(0, { message: 'cuota_amount no puede ser negativo' })
-  @IsNotEmpty({ message: 'cuota_amount es requerido' })
+  @Min(0, { message: 'value no puede ser negativo' })
+  @IsNotEmpty({ message: 'value es requerido' })
   @Transform(({ value }) => parseFloat(value))
   value: number;
 }

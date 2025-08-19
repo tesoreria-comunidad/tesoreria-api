@@ -1,12 +1,20 @@
-import { Injectable, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
-import { PrismaClient, Folder } from '@prisma/client';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
+import { Folder } from '@prisma/client';
 import { CreateFolderDTO, UpdateFolderDTO } from './dto/folder.dto';
 import { RoleFilterService } from 'src/services/RoleFilterService';
+import { PrismaService } from 'src/prisma.service';
 
 @Injectable()
 export class FolderService {
-  private prisma = new PrismaClient();
-  private roleFilterService: RoleFilterService;
+  constructor(
+    private prisma: PrismaService,
+    private roleFilterService: RoleFilterService,
+  ) {}
   public async getAllFolder(loggedUser: any) {
     try {
       const where = this.roleFilterService.apply(loggedUser);
@@ -27,7 +35,7 @@ export class FolderService {
         throw new BadRequestException('ID es requerido');
       }
       const where = this.roleFilterService.apply(loggedUser);
-      const folder = await this.prisma.folder.findFirst({ 
+      const folder = await this.prisma.folder.findFirst({
         where,
         include: {
           user: true,
@@ -40,7 +48,10 @@ export class FolderService {
 
       return folder;
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
         throw error;
       }
       throw new InternalServerErrorException('Error al obtener la carpeta');
@@ -49,7 +60,7 @@ export class FolderService {
 
   public async create(data: CreateFolderDTO) {
     try {
-      return await this.prisma.folder.create({ 
+      return await this.prisma.folder.create({
         data,
         include: {
           user: true,
@@ -77,7 +88,10 @@ export class FolderService {
         },
       });
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
         throw error;
       }
       throw new InternalServerErrorException('Error al actualizar la carpeta');
@@ -97,20 +111,17 @@ export class FolderService {
         where,
       });
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
         throw error;
       }
       throw new InternalServerErrorException('Error al eliminar la carpeta');
     }
   }
 
-  public async findBy({
-    key,
-    value,
-  }: {
-    key: keyof Folder;
-    value: string;
-  }) {
+  public async findBy({ key, value }: { key: keyof Folder; value: string }) {
     try {
       return await this.prisma.folder.findFirst({ where: { [key]: value } });
     } catch (error) {

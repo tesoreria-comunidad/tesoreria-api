@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Patch, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Patch, UseGuards, HttpCode, HttpStatus, Request} from '@nestjs/common';
 import { CuotaService } from './cuota.service';
 import { CreateCuotaDTO, UpdateCuotaDTO } from './dto/cuota.dto';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
@@ -12,15 +12,15 @@ export class CuotaController {
 
   @Get()
   @HttpCode(HttpStatus.OK)
-  async getAllCuotas() {
-    return await this.cuotaService.getAllCuota();
+  async getAllCuotas(@Request() req: any) {
+    return await this.cuotaService.getAllCuota(req.user);
   }
 
   @Get(':id')
   @Roles('MASTER')
   @HttpCode(HttpStatus.OK)
-  async getCuotaById(@Param('id') id: string) {
-    return await this.cuotaService.getById(id);
+  async getCuotaById(@Param('id') id: string, @Request() req: any) {
+    return await this.cuotaService.getById(id, req.user);
   }
 
   @Post()
@@ -33,15 +33,15 @@ export class CuotaController {
   @Patch(':id')
   @Roles('MASTER')
   @HttpCode(HttpStatus.OK)
-  async update(@Param('id') id: string, @Body() body: UpdateCuotaDTO) {
-    return await this.cuotaService.update(id, body);
+  async update(@Param('id') id: string, @Body() body: UpdateCuotaDTO, @Request() req: any) {
+    return await this.cuotaService.update(id, body, req.user);
   }
 
   @Delete(':id')
   @Roles('MASTER')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async delete(@Param('id') id: string) {
-    await this.cuotaService.delete(id);
+  async delete(@Param('id') id: string, @Request() req: any) {
+    await this.cuotaService.delete(id, req.user);
     return;
   }
 }

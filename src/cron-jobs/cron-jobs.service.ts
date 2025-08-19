@@ -22,10 +22,12 @@ export class CronJobsService {
       },
       null,
       true,
-      'America/Argentina/Buenos_Aires' // Ajusta la zona horaria según tu ubicación
+      'America/Argentina/Buenos_Aires', // Ajusta la zona horaria según tu ubicación
     );
 
-    this.logger.log('Cronjob de actualización mensual de balances inicializado');
+    this.logger.log(
+      'Cronjob de actualización mensual de balances inicializado',
+    );
   }
 
   /**
@@ -34,16 +36,20 @@ export class CronJobsService {
    */
   async updateFamilyBalancesForNewMonth(): Promise<void> {
     try {
-      this.logger.log('Iniciando actualización mensual de balances de familias');
+      this.logger.log(
+        'Iniciando actualización mensual de balances de familias',
+      );
 
       // Obtener la cuota activa actual
       const activeCuota = await this.prisma.cuota.findFirst({
         where: { is_active: true },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
       });
 
       if (!activeCuota) {
-        this.logger.warn('No se encontró una cuota activa. No se actualizarán los balances.');
+        this.logger.warn(
+          'No se encontró una cuota activa. No se actualizarán los balances.',
+        );
         return;
       }
 
@@ -52,8 +58,8 @@ export class CronJobsService {
       // Obtener todas las familias con sus balances
       const families = await this.prisma.family.findMany({
         include: {
-          balance: true
-        }
+          balance: true,
+        },
       });
 
       if (families.length === 0) {
@@ -70,10 +76,10 @@ export class CronJobsService {
       for (const family of families) {
         try {
           const currentBalance = family.balance;
-          
+
           // Determinar qué valor de cuota usar
-          const cuotaToApply = currentBalance.is_custom_cuota 
-            ? currentBalance.custom_cuota 
+          const cuotaToApply = currentBalance.is_custom_cuota
+            ? currentBalance.custom_cuota
             : activeCuota.value;
 
           // Calcular el nuevo balance (restar la cuota)
@@ -84,39 +90,40 @@ export class CronJobsService {
             where: { id: currentBalance.id },
             data: {
               value: newBalanceValue,
-              updatedAt: new Date()
-            }
+              updatedAt: new Date(),
+            },
           });
 
           this.logger.log(
-            `Balance actualizado para familia ${family.name}: $${currentBalance.value} -> $${newBalanceValue} (Cuota aplicada: $${cuotaToApply})`
+            `Balance actualizado para familia ${family.name}: $${currentBalance.value} -> $${newBalanceValue} (Cuota aplicada: $${cuotaToApply})`,
           );
 
           successCount++;
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+          const errorMessage =
+            error instanceof Error ? error.message : 'Error desconocido';
           const errorStack = error instanceof Error ? error.stack : undefined;
           this.logger.error(
             `Error al actualizar balance de familia ${family.name}: ${errorMessage}`,
-            errorStack
+            errorStack,
           );
           errorCount++;
         }
       }
 
       this.logger.log(
-        `Actualización mensual completada. Éxitos: ${successCount}, Errores: ${errorCount}`
+        `Actualización mensual completada. Éxitos: ${successCount}, Errores: ${errorCount}`,
       );
 
       // Opcional: Crear una transacción de registro para cada familia
       await this.createMonthlyTransactionRecords(families, activeCuota);
-
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Error desconocido';
       const errorStack = error instanceof Error ? error.stack : undefined;
       this.logger.error(
         `Error en la actualización mensual de balances: ${errorMessage}`,
-        errorStack
+        errorStack,
       );
     }
   }
@@ -124,19 +131,32 @@ export class CronJobsService {
   /**
    * Crea registros de transacciones para documentar la aplicación de cuotas mensuales
    */
-  private async createMonthlyTransactionRecords(families: any[], activeCuota: any): Promise<void> {
+  private async createMonthlyTransactionRecords(
+    families: any[],
+    activeCuota: any,
+  ): Promise<void> {
     try {
       const currentDate = new Date();
       const monthNames = [
-        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+        'Enero',
+        'Febrero',
+        'Marzo',
+        'Abril',
+        'Mayo',
+        'Junio',
+        'Julio',
+        'Agosto',
+        'Septiembre',
+        'Octubre',
+        'Noviembre',
+        'Diciembre',
       ];
       const currentMonth = monthNames[currentDate.getMonth()];
       const currentYear = currentDate.getFullYear();
 
       for (const family of families) {
-        const cuotaToApply = family.balance.is_custom_cuota 
-          ? family.balance.custom_cuota 
+        const cuotaToApply = family.balance.is_custom_cuota
+          ? family.balance.custom_cuota
           : activeCuota.value;
 
         await this.prisma.transactions.create({
@@ -148,18 +168,21 @@ export class CronJobsService {
             category: 'CUOTA',
             direction: 'EXPENSE',
             payment_method: 'EFECTIVO',
-            payment_date: currentDate
-          }
+            payment_date: currentDate,
+          },
         });
       }
 
-      this.logger.log('Registros de transacciones mensuales creados exitosamente');
+      this.logger.log(
+        'Registros de transacciones mensuales creados exitosamente',
+      );
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Error desconocido';
       const errorStack = error instanceof Error ? error.stack : undefined;
       this.logger.error(
         `Error al crear registros de transacciones mensuales: ${errorMessage}`,
-        errorStack
+        errorStack,
       );
     }
   }
@@ -178,7 +201,7 @@ export class CronJobsService {
   getCronJobStatus(): { isRunning: boolean; nextRun: Date | null } {
     return {
       isRunning: this.monthlyBalanceUpdateJob ? true : false,
-      nextRun: this.monthlyBalanceUpdateJob?.nextDate()?.toJSDate() || null
+      nextRun: this.monthlyBalanceUpdateJob?.nextDate()?.toJSDate() || null,
     };
   }
 
