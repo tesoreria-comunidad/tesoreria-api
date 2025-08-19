@@ -34,9 +34,10 @@ export class BalanceService {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-      const where = this.roleFilterService.apply(loggedUser);
       const balance = await this.prisma.balance.findFirst({
-        where,
+        where: {
+          id,
+        },
         include: {
           family: true,
         },
@@ -76,18 +77,19 @@ export class BalanceService {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-      const where = this.roleFilterService.apply(loggedUser);
-      // Verificar que el balance existe
       await this.getById(id, loggedUser);
 
       return await this.prisma.balance.update({
-        where,
+        where: {
+          id: id,
+        },
         data,
         include: {
           family: true,
         },
       });
     } catch (error) {
+      console.log('Error al actualizar el balance', error);
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
@@ -103,12 +105,13 @@ export class BalanceService {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-      const where = this.roleFilterService.apply(loggedUser);
       // Verificar que el balance existe
       await this.getById(id, loggedUser);
 
       return await this.prisma.balance.delete({
-        where,
+        where: {
+          id,
+        },
       });
     } catch (error) {
       if (

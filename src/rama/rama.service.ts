@@ -36,9 +36,10 @@ export class RamaService {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-      const where = this.roleFilterService.apply(loggedUser);
       const rama = await this.prisma.rama.findFirst({
-        where,
+        where: {
+          id,
+        },
         include: {
           users: true,
         },
@@ -100,7 +101,6 @@ export class RamaService {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-      const where = this.roleFilterService.apply(loggedUser);
       // Verificar que la rama existe
       await this.getById(id, loggedUser);
 
@@ -125,7 +125,7 @@ export class RamaService {
       }
 
       return await this.prisma.rama.update({
-        where,
+        where: { id },
         data: {
           ...data,
           name: data.name ? data.name.trim() : undefined,
@@ -151,7 +151,6 @@ export class RamaService {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-      const where = this.roleFilterService.apply(loggedUser);
       // Verificar que la rama existe
       const rama = await this.getById(id, loggedUser);
 
@@ -163,7 +162,7 @@ export class RamaService {
       }
 
       return await this.prisma.rama.delete({
-        where,
+        where: { id },
       });
     } catch (error) {
       if (
