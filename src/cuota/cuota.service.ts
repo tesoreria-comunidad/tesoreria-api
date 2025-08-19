@@ -7,17 +7,20 @@ import {
 import { PrismaClient, Cuota } from '@prisma/client';
 import { CreateCuotaDTO, UpdateCuotaDTO } from './dto/cuota.dto';
 import { RoleFilterService } from 'src/services/RoleFilterService';
+import { PrismaService } from 'src/prisma.service';
 
 @Injectable()
 export class CuotaService {
-  private prisma = new PrismaClient();
-  private roleFilterService: RoleFilterService;
-
+  constructor(
+    private prisma: PrismaService,
+    private roleFilterService: RoleFilterService,
+  ) {}
   public async getAllCuota(loggedUser: any) {
     try {
       const where = this.roleFilterService.apply(loggedUser);
       return await this.prisma.cuota.findMany({ where });
     } catch (error) {
+      console.log('Error al obtener las cuotas:', error);
       throw new InternalServerErrorException('Error al obtener las cuotas');
     }
   }
@@ -141,6 +144,23 @@ export class CuotaService {
       return await this.prisma.cuota.findFirst({ where: { [key]: value } });
     } catch (error) {
       throw new InternalServerErrorException('Error en la búsqueda');
+    }
+  }
+
+  /**
+   * Obtiene la cuota activa actual
+   * Útil para el cronjob y otros procesos que necesiten la cuota vigente
+   */
+  public async getActiveCuota() {
+    try {
+      return await this.prisma.cuota.findFirst({
+        where: { is_active: true },
+        orderBy: { createdAt: 'desc' },
+      });
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Error al obtener la cuota activa',
+      );
     }
   }
 }
