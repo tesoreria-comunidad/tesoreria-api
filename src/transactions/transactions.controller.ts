@@ -23,30 +23,28 @@ import { RolesGuard } from 'src/auth/guards/roles.guard';
 @UseGuards(AuthGuard, RolesGuard)
 @Controller('transactions')
 export class TransactionsController {
-  constructor(private readonly transactionsService: TransactionsService) { }
+  constructor(private readonly transactionsService: TransactionsService) {}
 
   @Get()
-  @Roles('master', 'dirigente')
-
+  @Roles('MASTER', 'DIRIGENTE')
   async findAll(@Request() req: any) {
     return this.transactionsService.findAll(req.user);
   }
 
   @Get(':id')
-  @Roles('master', 'dirigente')
-
+  @Roles('MASTER', 'DIRIGENTE')
   async findOne(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
     return this.transactionsService.findOne(id, req.user);
   }
 
   @Post()
-  @Roles('master', 'dirigente')
+  @Roles('MASTER', 'DIRIGENTE')
   async create(@Body() dto: CreateTransactionDTO) {
     return this.transactionsService.create(dto);
   }
 
   @Patch(':id')
-  @Roles('master', 'dirigente')
+  @Roles('MASTER', 'DIRIGENTE')
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateTransactionDTO,
@@ -56,8 +54,7 @@ export class TransactionsController {
   }
 
   @Delete(':id')
-  @Roles('master')
-
+  @Roles('MASTER')
   async remove(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
     return this.transactionsService.remove(id, req.user);
   }
