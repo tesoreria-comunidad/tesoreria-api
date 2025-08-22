@@ -114,74 +114,12 @@ export class CronJobsService {
       this.logger.log(
         `Actualización mensual completada. Éxitos: ${successCount}, Errores: ${errorCount}`,
       );
-
-      // Opcional: Crear una transacción de registro para cada familia
-      await this.createMonthlyTransactionRecords(families, activeCuota);
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Error desconocido';
       const errorStack = error instanceof Error ? error.stack : undefined;
       this.logger.error(
         `Error en la actualización mensual de balances: ${errorMessage}`,
-        errorStack,
-      );
-    }
-  }
-
-  /**
-   * Crea registros de transacciones para documentar la aplicación de cuotas mensuales
-   */
-  private async createMonthlyTransactionRecords(
-    families: any[],
-    activeCuota: any,
-  ): Promise<void> {
-    try {
-      const currentDate = new Date();
-      const monthNames = [
-        'Enero',
-        'Febrero',
-        'Marzo',
-        'Abril',
-        'Mayo',
-        'Junio',
-        'Julio',
-        'Agosto',
-        'Septiembre',
-        'Octubre',
-        'Noviembre',
-        'Diciembre',
-      ];
-      const currentMonth = monthNames[currentDate.getMonth()];
-      const currentYear = currentDate.getFullYear();
-
-      for (const family of families) {
-        const cuotaToApply = family.balance.is_custom_cuota
-          ? family.balance.custom_cuota
-          : activeCuota.value;
-
-        await this.prisma.transactions.create({
-          data: {
-            id_family: family.id,
-            amount: cuotaToApply,
-            concept: 'CUOTA',
-            description: `Cuota mensual aplicada automáticamente - ${currentMonth} ${currentYear}`,
-            category: 'CUOTA',
-            direction: 'EXPENSE',
-            payment_method: 'EFECTIVO',
-            payment_date: currentDate,
-          },
-        });
-      }
-
-      this.logger.log(
-        'Registros de transacciones mensuales creados exitosamente',
-      );
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Error desconocido';
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(
-        `Error al crear registros de transacciones mensuales: ${errorMessage}`,
         errorStack,
       );
     }
