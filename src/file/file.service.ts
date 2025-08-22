@@ -22,7 +22,7 @@ export class FileService {
     this.bucketName = this.configService.get('AWS_BUCKET_NAME')!;
   }
 
-  async upload(file: Express.Multer.File, token: string) {
+  async upload(file: Express.Multer.File, token: string, family_id: string) {
     const fileKey = `${Date.now()}-${uuid()}-${file.originalname}`;
     const res = await this.s3.send(
       new PutObjectCommand({
@@ -30,7 +30,7 @@ export class FileService {
         Key: fileKey,
         Body: file.buffer,
         Metadata: {
-          family_id: 'b2a06c40-172b-4e74-8afe-21cefb40ecc4', // <-- FAMILIA VILLANUEVA HARCODED
+          family_id, // <-- FAMILIA VILLANUEVA HARCODED
           token: token, // <-- valor dinámico si querés
         },
       }),
