@@ -167,6 +167,11 @@ export class FamilyService {
 
       const family = await this.prisma.family.findUnique({
         where: { id },
+        include: {
+          transactions: true,
+          users: true,
+          balance: true,
+        },
       });
 
       if (!family) {

@@ -11,10 +11,14 @@ import {
 } from './dto/transactions.dto';
 import { RoleFilterService } from 'src/services/RoleFilterService';
 import { log } from 'console';
+import { TransactionDirection } from './constants';
 
 @Injectable()
 export class TransactionsService {
-  constructor(private prisma: PrismaService, private roleFilterService: RoleFilterService) {}
+  constructor(
+    private prisma: PrismaService,
+    private roleFilterService: RoleFilterService,
+  ) {}
 
   async create(data: CreateTransactionDTO) {
     try {
@@ -37,6 +41,48 @@ export class TransactionsService {
     }
   }
 
+  async createFamilyTransaction(
+    data: Omit<CreateTransactionDTO, 'direction' | 'category' | 'concept'>,
+  ) {
+    const family = await this.prisma.family.findUnique({
+      where: { id: data.id_family },
+    });
+    if (!family)
+      throw new NotFoundException(
+        `Familia con ID ${data.id_family} no encontrada`,
+      );
+
+    const newTransactionPayload: CreateTransactionDTO = {
+      amount: data.amount,
+      id_family: data.id_family,
+      payment_method: data.payment_method,
+      payment_date: data.payment_date || new Date().toISOString(),
+      direction: TransactionDirection.INCOME,
+      category: 'CUOTA',
+      concept: `Cuota familiar - ${new Date().toLocaleDateString()}`,
+      description: `Cuota mensual de la familia con ID ${data.id_family}`,
+    };
+
+    const transaction = await this.create(newTransactionPayload);
+
+    // Actualizamos el balance de la familia
+    const balance = await this.prisma.balance.findUnique({
+      where: { id: family.id_balance },
+    });
+
+    if (!balance)
+      throw new NotFoundException(
+        `Balance con ID ${family.id_balance} no encontrado para la familia ${data.id_family}`,
+      );
+
+    await this.prisma.balance.update({
+      where: { id: balance.id },
+      data: { value: balance.value + data.amount },
+    });
+
+    return transaction;
+  }
+
   async findAll(loggedUser: any) {
     try {
       const where = this.roleFilterService.apply(loggedUser);
@@ -45,14 +91,16 @@ export class TransactionsService {
         orderBy: { createdAt: 'desc' },
       });
     } catch (error) {
-      throw new InternalServerErrorException('Error al obtener las transacciones');
+      throw new InternalServerErrorException(
+        'Error al obtener las transacciones',
+      );
     }
   }
 
   async findOne(id: string, loggedUser: any) {
     try {
       if (!id) throw new BadRequestException('ID es requerido');
-      const where = this.roleFilterService.apply(loggedUser)
+      const where = this.roleFilterService.apply(loggedUser);
       const transaction = await this.prisma.transactions.findUnique({
         where,
       });
@@ -75,7 +123,7 @@ export class TransactionsService {
   async update(id: string, data: UpdateTransactionDTO, loggedUser: any) {
     try {
       if (!id) throw new BadRequestException('ID es requerido');
-      const where = this.roleFilterService.apply({loggedUser});
+      const where = this.roleFilterService.apply({ loggedUser });
       // Verificamos existencia antes de actualizar
       await this.findOne(id, loggedUser);
 
@@ -102,7 +150,7 @@ export class TransactionsService {
       const where = this.roleFilterService.apply(loggedUser);
       // Verificamos existencia antes de eliminar
       await this.findOne(id, loggedUser);
-      
+
       return await this.prisma.transactions.delete({
         where,
       });
@@ -113,7 +161,9 @@ export class TransactionsService {
       ) {
         throw error;
       }
-      throw new InternalServerErrorException('Error al eliminar la transacción');
+      throw new InternalServerErrorException(
+        'Error al eliminar la transacción',
+      );
     }
   }
   async bulkCreate(transactions: CreateTransactionDTO[]) {

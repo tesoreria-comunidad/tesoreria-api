@@ -9,6 +9,7 @@ import {
   Patch,
   UseGuards,
   Request,
+  BadRequestException,
 } from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
 import {
@@ -41,6 +42,19 @@ export class TransactionsController {
   @Roles('MASTER', 'DIRIGENTE')
   async create(@Body() dto: CreateTransactionDTO) {
     return this.transactionsService.create(dto);
+  }
+
+  @Post('/family-cuota')
+  @Roles('MASTER', 'DIRIGENTE')
+  async createFamilyTransaction(
+    @Body()
+    dto: Omit<CreateTransactionDTO, 'direction' | 'category' | 'concept'>,
+  ) {
+    // This endpoint creates a transaction with direction INCOME, category CUOTA, and concept "Cuota familiar - {fecha actual}", and update the balance of the family"
+    if (!dto.id_family) {
+      throw new BadRequestException('id_family is required');
+    }
+    return await this.transactionsService.createFamilyTransaction(dto);
   }
 
   @Patch(':id')
