@@ -120,6 +120,23 @@ export class TransactionsService {
     }
   }
 
+  async findByFamilyId(id_family: string) {
+    try {
+      if (!id_family)
+        throw new BadRequestException('ID de familia es requerido');
+      return await this.prisma.transactions.findMany({
+        where: { id_family },
+        orderBy: { payment_date: 'desc' },
+      });
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
+        'Error al obtener las transacciones por familia',
+      );
+    }
+  }
   async update(id: string, data: UpdateTransactionDTO, loggedUser: any) {
     try {
       if (!id) throw new BadRequestException('ID es requerido');

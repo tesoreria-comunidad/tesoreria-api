@@ -1,4 +1,16 @@
-import { Body, Controller, Delete, Get, Param, Post, Patch, UseGuards, HttpCode, HttpStatus, Request} from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Patch,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+  Request,
+} from '@nestjs/common';
 import { BalanceService } from './balance.service';
 import { CreateBalanceDTO, UpdateBalanceDTO } from './dto/balance.dto';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
@@ -8,8 +20,7 @@ import { Roles } from 'src/auth/decorators/roles.decorator';
 @UseGuards(AuthGuard, RolesGuard)
 @Controller('balance')
 export class BalanceController {
-  constructor(private readonly balanceService: BalanceService) { }
-
+  constructor(private readonly balanceService: BalanceService) {}
 
   @Get()
   @Roles('MASTER', 'DIRIGENTE')
@@ -19,7 +30,7 @@ export class BalanceController {
   }
 
   @Get(':id')
-  @Roles('MASTER', 'DIRIGENTE')
+  @Roles('MASTER', 'DIRIGENTE', 'FAMILY', 'BENEFICIARIO')
   @HttpCode(HttpStatus.OK)
   async getBalanceById(@Param('id') id: string, @Request() req: any) {
     return await this.balanceService.getById(id, req.user);
@@ -35,7 +46,11 @@ export class BalanceController {
   @Patch(':id')
   @Roles('MASTER', 'DIRIGENTE')
   @HttpCode(HttpStatus.OK)
-  async update(@Param('id') id: string, @Body() body: UpdateBalanceDTO, @Request() req: any) {
+  async update(
+    @Param('id') id: string,
+    @Body() body: UpdateBalanceDTO,
+    @Request() req: any,
+  ) {
     return await this.balanceService.update(id, body, req.user);
   }
 

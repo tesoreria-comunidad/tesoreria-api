@@ -37,6 +37,11 @@ export class TransactionsController {
   async findOne(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
     return this.transactionsService.findOne(id, req.user);
   }
+  @Get('/by-family/:id')
+  @Roles('MASTER', 'DIRIGENTE', 'FAMILY', 'BENEFICIARIO')
+  async getGyFamilyId(@Param('id', ParseUUIDPipe) id: string) {
+    return this.transactionsService.findByFamilyId(id);
+  }
 
   @Post()
   @Roles('MASTER', 'DIRIGENTE')
@@ -45,7 +50,7 @@ export class TransactionsController {
   }
 
   @Post('/family-cuota')
-  @Roles('MASTER', 'DIRIGENTE')
+  @Roles('MASTER', 'DIRIGENTE', 'FAMILY', 'BENEFICIARIO')
   async createFamilyTransaction(
     @Body()
     dto: Omit<CreateTransactionDTO, 'direction' | 'category' | 'concept'>,
