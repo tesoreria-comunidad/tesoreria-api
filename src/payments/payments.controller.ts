@@ -1,55 +1,76 @@
-import { Body, Controller, Delete, Get, Param, Post, Patch, UseGuards, HttpCode, HttpStatus, NotFoundException } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Patch,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+  NotFoundException,
+  Request,
+} from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { CreatePaymentDto, UpdatePaymentDto } from './dto/payments.dto';
 import { FamilyService } from 'src/family/family.service';
-import { NOTFOUND } from 'dns';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
 
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, RolesGuard)
 @Controller('payments')
 export class PaymentsController {
-    constructor(private readonly paymentsService: PaymentsService,
-        private readonly familyService: FamilyService
-    ) { }
+  constructor(
+    private readonly paymentsService: PaymentsService,
+    private readonly familyService: FamilyService,
+  ) { }
 
-    @Post()
-    @HttpCode(HttpStatus.CREATED)
-    async create(@Body() createPaymentDto: CreatePaymentDto) {
+  @Post()
+  @Roles('MASTER', 'DIRIGENTE', 'BENEFICIARIO')
+  @HttpCode(HttpStatus.CREATED)
+  async create(@Body() createPaymentDto: CreatePaymentDto) {
+    try {
+      const family = await this.familyService.findOne(
+        createPaymentDto.id_family,
+      );
 
-        try {
-            const family = await this.familyService.findOne(createPaymentDto.id_family)
+      if (!family) {
+        throw new NotFoundException('family not found');
+      }
 
-            if (!family) {
-                throw new NotFoundException('family not found')
-            }
-
-            return this.paymentsService.create(createPaymentDto);
-        } catch (error) {
-            throw error
-        }
+      return this.paymentsService.create(createPaymentDto);
+    } catch (error) {
+      throw error;
     }
+  }
 
-    @Get()
-    @HttpCode(HttpStatus.OK)
-    findAll() {
-        return this.paymentsService.findAll();
-    }
+  @Get()
+  @Roles('MASTER', 'DIRIGENTE')
+  @HttpCode(HttpStatus.OK)
+  findAll(@Request() req: any) {
+    return this.paymentsService.findAll(req.user);
+  }
 
-    @Get(':id')
-    @HttpCode(HttpStatus.OK)
-    findOne(@Param('id') id: string) {
-        return this.paymentsService.findOne(id);
-    }
+  @Get(':id')
+  @Roles('MASTER', 'DIRIGENTE')
+  @HttpCode(HttpStatus.OK)
+  findOne(@Param('id') id: string, @Request() req: any) {
+    return this.paymentsService.findOne(id, req.user);
+  }
 
-    @Patch(':id')
-    @HttpCode(HttpStatus.OK)
-    update(@Param('id') id: string, @Body() updatePaymentDto: UpdatePaymentDto) {
-        return this.paymentsService.update(id, updatePaymentDto);
-    }
+  @Patch(':id')
+  @Roles('MASTER', 'DIRIGENTE')
+  @HttpCode(HttpStatus.OK)
+  update(@Param('id') id: string, @Body() updatePaymentDto: UpdatePaymentDto, @Request() req: any) {
+    return this.paymentsService.update(id, updatePaymentDto, req.user);
+  }
 
-    @Delete(':id')
-    @HttpCode(HttpStatus.NO_CONTENT)
-    remove(@Param('id') id: string) {
-        return this.paymentsService.remove(id);
-    }
+  @Delete(':id')
+  @Roles('MASTER')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(@Param('id') id: string, @Request() req: any) {
+    return this.paymentsService.remove(id, req.user);
+  }
 }

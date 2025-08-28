@@ -1,27 +1,38 @@
-import { Injectable, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { PrismaClient, Cuota } from '@prisma/client';
 import { CreateCuotaDTO, UpdateCuotaDTO } from './dto/cuota.dto';
+import { RoleFilterService } from 'src/services/RoleFilterService';
+import { PrismaService } from 'src/prisma.service';
 
 @Injectable()
 export class CuotaService {
-  private prisma = new PrismaClient();
-
-  public async getAllCuota() {
+  constructor(
+    private prisma: PrismaService,
+    private roleFilterService: RoleFilterService,
+  ) {}
+  public async getAllCuota(loggedUser: any) {
     try {
-      return await this.prisma.cuota.findMany();
+      const where = this.roleFilterService.apply(loggedUser);
+      return await this.prisma.cuota.findMany({ where });
     } catch (error) {
+      console.log('Error al obtener las cuotas:', error);
       throw new InternalServerErrorException('Error al obtener las cuotas');
     }
   }
 
-  public async getById(id: string) {
+  public async getById(id: string, loggedUser: any) {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-
-      const cuota = await this.prisma.cuota.findFirst({ 
-        where: { id },
+      const where = this.roleFilterService.apply(loggedUser);
+      const cuota = await this.prisma.cuota.findFirst({
+        where,
       });
 
       if (!cuota) {
@@ -30,7 +41,10 @@ export class CuotaService {
 
       return cuota;
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
         throw error;
       }
       throw new InternalServerErrorException('Error al obtener la cuota');
@@ -39,11 +53,19 @@ export class CuotaService {
 
   public async create(data: CreateCuotaDTO) {
     try {
-      if (data.cuota_amount < 0 || data.cfa_amount < 0) {
+      if (data.value < 0) {
         throw new BadRequestException('Los montos no pueden ser negativos');
       }
-
-      return await this.prisma.cuota.create({ 
+      const activeCuota = await this.prisma.cuota.findFirst({
+        where: { is_active: true },
+      });
+      if (activeCuota) {
+        await this.prisma.cuota.update({
+          where: { id: activeCuota.id },
+          data: { is_active: false },
+        });
+      }
+      return await this.prisma.cuota.create({
         data,
       });
     } catch (error) {
@@ -54,17 +76,19 @@ export class CuotaService {
     }
   }
 
-  public async update(id: string, data: UpdateCuotaDTO) {
+  public async update(id: string, data: UpdateCuotaDTO, loggedUser: any) {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-
+      const where = this.roleFilterService.apply(loggedUser);
       // Verificar que la cuota existe
-      await this.getById(id);
+      await this.getById(id, loggedUser);
 
-      if (data.cuota_amount !== undefined && data.cuota_amount < 0) {
-        throw new BadRequestException('El monto de cuota no puede ser negativo');
+      if (data.value !== undefined && data.value < 0) {
+        throw new BadRequestException(
+          'El monto de cuota no puede ser negativo',
+        );
       }
 
       if (data.cfa_amount !== undefined && data.cfa_amount < 0) {
@@ -72,31 +96,37 @@ export class CuotaService {
       }
 
       return await this.prisma.cuota.update({
-        where: { id },
+        where,
         data,
       });
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
         throw error;
       }
       throw new InternalServerErrorException('Error al actualizar la cuota');
     }
   }
 
-  public async delete(id: string) {
+  public async delete(id: string, loggedUser: any) {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-
+      const where = this.roleFilterService.apply(loggedUser);
       // Verificar que la cuota existe
-      await this.getById(id);
+      await this.getById(id, loggedUser);
 
       return await this.prisma.cuota.delete({
-        where: { id },
+        where,
       });
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
         throw error;
       }
       throw new InternalServerErrorException('Error al eliminar la cuota');
@@ -114,6 +144,23 @@ export class CuotaService {
       return await this.prisma.cuota.findFirst({ where: { [key]: value } });
     } catch (error) {
       throw new InternalServerErrorException('Error en la búsqueda');
+    }
+  }
+
+  /**
+   * Obtiene la cuota activa actual
+   * Útil para el cronjob y otros procesos que necesiten la cuota vigente
+   */
+  public async getActiveCuota() {
+    try {
+      return await this.prisma.cuota.findFirst({
+        where: { is_active: true },
+        orderBy: { createdAt: 'desc' },
+      });
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Error al obtener la cuota activa',
+      );
     }
   }
 }

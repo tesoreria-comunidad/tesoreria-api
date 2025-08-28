@@ -13,6 +13,10 @@ import { BalanceModule } from './balance/balance.module';
 import { UserController } from './user/user.controller';
 import { UserService } from './user/user.service';
 import { PrismaService } from './prisma.service';
+import { TransactionsModule } from './transactions/transactions.module';
+import { ServicesModule } from './services/services.module';
+import { CronJobsModule } from './cron-jobs/cron-jobs.module';
+import { FileModule } from './file/file.module';
 
 @Module({
   imports: [
@@ -26,6 +30,10 @@ import { PrismaService } from './prisma.service';
     FamilyModule,
     PaymentsModule,
     PersonModule,
+    TransactionsModule,
+    ServicesModule,
+    CronJobsModule,
+    FileModule,
   ],
   controllers: [UserController],
   providers: [UserService, PrismaService, AuthService, JwtService],
