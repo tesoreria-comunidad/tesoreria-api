@@ -281,6 +281,7 @@ export class UserService {
         },
       });
     } catch (error) {
+      console.log('Error al actualizar usuario', error);
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException ||
