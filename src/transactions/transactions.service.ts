@@ -9,7 +9,7 @@ import {
   CreateTransactionDTO,
   UpdateTransactionDTO,
 } from './dto/transactions.dto';
-import { RoleFilterService } from 'src/services/RoleFilterService';
+import { RoleFilterService } from 'src/services/RoleFilter.service';
 import { log } from 'console';
 import { TransactionDirection } from './constants';
 

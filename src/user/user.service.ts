@@ -10,7 +10,7 @@ import { UpdateUserDTO, CreateUserDTO } from './dto/user.dto';
 import { removeUndefined } from 'src/utils/remove-undefined.util';
 import { PrismaService } from 'src/prisma.service';
 import * as bcrypt from 'bcrypt';
-import { RoleFilterService } from 'src/services/RoleFilterService';
+import { RoleFilterService } from 'src/services/RoleFilter.service';
 
 @Injectable()
 export class UserService {
@@ -31,6 +31,7 @@ export class UserService {
         },
       });
     } catch (error) {
+      console.log("Error al obtener los usuarios: ", error);
       throw new InternalServerErrorException('Error al obtener los usuarios');
     }
   }
@@ -47,6 +48,7 @@ export class UserService {
         throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
       return user;
     } catch (error) {
+      console.log('Error al obtener usuario por ID', error);
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
@@ -152,6 +154,7 @@ export class UserService {
         },
       });
     } catch (error) {
+      console.log('Error al crear usuario', error);
       if (
         error instanceof BadRequestException ||
         error instanceof ConflictException
@@ -172,7 +175,8 @@ export class UserService {
         where,
         include: { rama: true, folder: true, family: true },
       });
-    } catch {
+    } catch (error) {
+      console.log('Error en la búsqueda de usuario', error);
       throw new InternalServerErrorException('Error en la búsqueda de usuario');
     }
   }
@@ -299,6 +303,7 @@ export class UserService {
       await this.getById(id, loggedUser);
       return await this.prisma.user.delete({ where: { id } });
     } catch (error) {
+      console.log('Error al eliminar usuario', error);
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
@@ -435,6 +440,7 @@ export class UserService {
         orderBy: [{ family_role: 'asc' }, { name: 'asc' }],
       });
     } catch (error) {
+      console.log('Error al obtener usuarios por familia', error);
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
@@ -447,31 +453,42 @@ export class UserService {
   }
 
   public async getFamilyAdmin(familyId: string, loggedUser: any) {
-    const where = this.roleFilterService.apply(loggedUser, {
-      id_family: familyId,
-      family_role: 'ADMIN',
-    });
-    const admin = await this.prisma.user.findFirst({
-      where,
-      include: { rama: true, folder: true, family: true },
-    });
-    if (!admin)
-      throw new NotFoundException(
-        'No se encontró un administrador para esta familia',
-      );
-    return admin;
+    try {
+      const where = this.roleFilterService.apply(loggedUser, {
+        id_family: familyId,
+        family_role: 'ADMIN',
+      });
+      const admin = await this.prisma.user.findFirst({
+        where,
+        include: { rama: true, folder: true, family: true },
+      });
+      if (!admin)
+        throw new NotFoundException(
+          'No se encontró un administrador para esta familia',
+        );
+      return admin;
+    } catch (error) {
+      console.log('Error al obtener administrador de familia', error);
+    }
   }
 
   public async getFamilyAdmins(familyId: string, loggedUser: any) {
-    const where = this.roleFilterService.apply(loggedUser, {
-      id_family: familyId,
-      family_role: 'ADMIN',
-    });
-    return await this.prisma.user.findMany({
-      where,
-      include: { rama: true, folder: true, family: true },
-      orderBy: { name: 'asc' },
-    });
+    try {
+      const where = this.roleFilterService.apply(loggedUser, {
+        id_family: familyId,
+        family_role: 'ADMIN',
+      });
+      return await this.prisma.user.findMany({
+        where,
+        include: { rama: true, folder: true, family: true },
+        orderBy: { name: 'asc' },
+      });
+    } catch (error) {
+      console.log('Error al obtener administradores de familia', error);
+      throw new InternalServerErrorException(
+        'Error al obtener administradores de familia',
+      );
+    }
   }
 
   public async promoteToFamilyAdmin(
@@ -526,6 +543,7 @@ export class UserService {
         },
       });
     } catch (error) {
+      console.log('Error al promover usuario a administrador', error);
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
@@ -596,6 +614,7 @@ export class UserService {
         },
       });
     } catch (error) {
+      console.log('Error al degradar usuario de administrador', error);
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
@@ -610,16 +629,28 @@ export class UserService {
 
   // Necesario para uso en AuthService (sin restricciones de rol)
   public async getByIdInternal(id: string) {
-    return this.prisma.user.findFirst({
+    try {
+      return this.prisma.user.findFirst({
       where: { id },
       include: { rama: true, folder: true, family: true },
     });
+    } catch (error) {
+      console.log('Error al obtener usuario por ID', error);
+      throw new InternalServerErrorException(
+        'Error al obtener usuario por ID',
+      );
+    }
   }
 
   public async findByInternal(where: Partial<User>) {
-    return this.prisma.user.findFirst({
+    try {
+      return this.prisma.user.findFirst({
       where,
       include: { rama: true, folder: true, family: true },
     });
+    } catch (error) {
+      console.log('Error en la búsqueda de usuario', error);
+      throw new InternalServerErrorException('Error en la búsqueda de usuario');
+    }
   }
 }

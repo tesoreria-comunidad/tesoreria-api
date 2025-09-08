@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { Folder } from '@prisma/client';
 import { CreateFolderDTO, UpdateFolderDTO } from './dto/folder.dto';
-import { RoleFilterService } from 'src/services/RoleFilterService';
+import { RoleFilterService } from 'src/services/RoleFilter.service';
 import { PrismaService } from 'src/prisma.service';
 
 @Injectable()

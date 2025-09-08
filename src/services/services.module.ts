@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { RoleFilterService } from './RoleFilterService';
+import { RoleFilterService } from './RoleFilter.service';
 
 @Module({
   providers: [RoleFilterService],

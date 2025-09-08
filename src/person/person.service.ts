@@ -10,7 +10,7 @@ import { CreatePersonDTO } from './dto/create-person.dto';
 import { UpdatePersonDTO } from './dto/update-person.dto';
 import { removeUndefined } from '../utils/remove-undefined.util';
 import * as bcrypt from 'bcrypt';
-import { RoleFilterService } from 'src/services/RoleFilterService';
+import { RoleFilterService } from 'src/services/RoleFilter.service';
 @Injectable()
 export class PersonService {
   constructor(private prisma: PrismaService, private roleFilterService: RoleFilterService) {}
