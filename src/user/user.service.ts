@@ -6,7 +6,11 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { User } from '@prisma/client';
-import { UpdateUserDTO, CreateUserDTO } from './dto/user.dto';
+import {
+  UpdateUserDTO,
+  CreateUserDTO,
+  BulkCreateUserDTO,
+} from './dto/user.dto';
 import { removeUndefined } from 'src/utils/remove-undefined.util';
 import { PrismaService } from 'src/prisma.service';
 import * as bcrypt from 'bcrypt';
@@ -309,7 +313,7 @@ export class UserService {
   }
 
   public async bulkCreate(
-    users: CreateUserDTO[],
+    users: BulkCreateUserDTO[],
     id_rama: string,
     loggedUser: any,
   ) {
@@ -329,21 +333,6 @@ export class UserService {
           'Debe proporcionar una lista de usuarios',
         );
       }
-
-      // Validación de usernames existentes
-      const usernames = users.map((u) => u.username);
-      const existingUsernames = await this.prisma.user.findMany({
-        where: { username: { in: usernames } },
-        select: { username: true },
-      });
-
-      if (existingUsernames.length > 0) {
-        const conflicts = existingUsernames.map((u) => u.username);
-        throw new ConflictException(
-          `Ya existen usuarios con los siguientes usernames: ${conflicts.join(', ')}`,
-        );
-      }
-
       // Validación de emails existentes
       const emails = users.map((u) => u.email?.toLowerCase()).filter(Boolean);
       if (emails.length > 0) {
@@ -386,23 +375,41 @@ export class UserService {
         }
       }
 
+      let finalData: CreateUserDTO;
+
+      // Generar username y password automaticamente para cada usuario
+      const generatedUsernames = new Set<string>();
+      for (const user of users) {
+        // Crear la base a partir del name y last_name
+        const base = `${user.name.toLowerCase().trim()}.${user.last_name.toLowerCase().trim()}`;
+        let candidate = base;
+        let counter = 1;
+
+        // Verificar en la base de datos y en los usuarios ya generados localmente para asegurar unicidad
+        while (
+          generatedUsernames.has(candidate) ||
+          (await this.prisma.user.findFirst({ where: { username: candidate } }))
+        ) {
+          candidate = `${base}.${counter}`;
+          counter++;
+        }
+
+        generatedUsernames.add(candidate);
+        user.username = candidate;
+        user.password = candidate;
+      }
+
       // Hashear contraseñas y limpiar datos
       const usersWithHashedPasswords = await Promise.all(
         users.map(async (user) => ({
           ...user,
           username: user.username.trim(),
-          name: user.name.trim(),
-          last_name: user.last_name.trim(),
-          address: user.address.trim(),
-          phone: user.phone.trim(),
-          email: user.email.trim().toLowerCase(),
-          dni: user.dni.trim(),
-          citizenship: user.citizenship.trim(),
           password: await bcrypt.hash(
             user.password,
             +process.env.HASH_SALT || 10,
           ),
-          id_rama: id_rama || user.id_rama || null,
+          birthdate: user.birthdate ? user.birthdate : null,
+          id_rama: id_rama ? id_rama : null,
         })),
       );
 
