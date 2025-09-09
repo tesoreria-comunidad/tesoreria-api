@@ -16,11 +16,9 @@ export class RamaService {
     private prisma: PrismaService,
     private roleFilterService: RoleFilterService,
   ) {}
-  public async getAllRama(loggedUser: any) {
+  public async getAllRama() {
     try {
-      const where = this.roleFilterService.apply(loggedUser);
       return await this.prisma.rama.findMany({
-        where,
         include: {
           users: true,
         },

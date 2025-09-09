@@ -13,10 +13,13 @@ import {
   HttpCode,
   HttpStatus,
   Request,
-
 } from '@nestjs/common';
 import { UserService } from './user.service';
-import { UpdateUserDTO, CreateUserDTO } from './dto/user.dto';
+import {
+  UpdateUserDTO,
+  CreateUserDTO,
+  BulkCreateUserDTO,
+} from './dto/user.dto';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
@@ -24,14 +27,13 @@ import { RolesGuard } from 'src/auth/guards/roles.guard';
 @UseGuards(AuthGuard, RolesGuard)
 @Controller('user')
 export class UserController {
-  constructor(private readonly userService: UserService) { }
+  constructor(private readonly userService: UserService) {}
 
   @Get()
   @HttpCode(HttpStatus.OK)
   @Roles('MASTER', 'DIRIGENTE')
   async getAllUsers(@Request() req: any) {
     return await this.userService.getAllUser(req.user);
-
   }
 
   @Get(':id')
@@ -48,7 +50,11 @@ export class UserController {
 
   @Patch(':id')
   @Roles('MASTER', 'DIRIGENTE')
-  async update(@Param('id') id: string, @Body() body: UpdateUserDTO, @Request() req: any) {
+  async update(
+    @Param('id') id: string,
+    @Body() body: UpdateUserDTO,
+    @Request() req: any,
+  ) {
     return await this.userService.update(id, body, req.user);
   }
 
@@ -70,7 +76,7 @@ export class UserController {
   @Post('bulk')
   @Roles('MASTER', 'DIRIGENTE')
   async bulkCreateUsers(
-    @Body() body: { users: CreateUserDTO[] },
+    @Body() body: { users: BulkCreateUserDTO[] },
     @Query() query: { id_rama: string },
     @Request() req: any,
   ) {
@@ -82,15 +88,6 @@ export class UserController {
     }
 
     /** Validar usernames duplicados en el payload */
-    const usernames = users.map((user) => user.username);
-    const duplicateUsernames = usernames.filter(
-      (username, index) => usernames.indexOf(username) !== index,
-    );
-    if (duplicateUsernames.length > 0) {
-      throw new BadRequestException(
-        `Usuarios duplicados en el body con username: ${[...new Set(duplicateUsernames)].join(', ')}`,
-      );
-    }
 
     /** Validar emails duplicados en el payload */
     const emails = users
@@ -108,12 +105,14 @@ export class UserController {
     /** Validar DNIs duplicados en el payload */
     const dniSet = new Set<string>();
     for (const user of users) {
-      if (dniSet.has(user.dni)) {
-        throw new BadRequestException(
-          `DNI duplicado encontrado en el body: ${user.dni}`,
-        );
+      if (user.dni) {
+        if (dniSet.has(user.dni)) {
+          throw new BadRequestException(
+            `DNI duplicado encontrado en el body: ${user.dni}`,
+          );
+        }
+        dniSet.add(user.dni);
       }
-      dniSet.add(user.dni);
     }
 
     return await this.userService.bulkCreate(users, id_rama, req.user);
@@ -121,21 +120,30 @@ export class UserController {
   @Roles('MASTER', 'DIRIGENTE')
   @Get('family/:familyId')
   @HttpCode(HttpStatus.OK)
-  async getUsersByFamily(@Param('familyId') familyId: string, @Request() req: any) {
+  async getUsersByFamily(
+    @Param('familyId') familyId: string,
+    @Request() req: any,
+  ) {
     return await this.userService.getUsersByFamily(familyId, req.user);
   }
 
   @Roles('MASTER', 'DIRIGENTE')
   @Get('family/:familyId/admin')
   @HttpCode(HttpStatus.OK)
-  async getFamilyAdmin(@Param('familyId') familyId: string, @Request() req: any) {
+  async getFamilyAdmin(
+    @Param('familyId') familyId: string,
+    @Request() req: any,
+  ) {
     return await this.userService.getFamilyAdmin(familyId, req.user);
   }
 
   @Roles('MASTER', 'DIRIGENTE')
   @Get('family/:familyId/admins')
   @HttpCode(HttpStatus.OK)
-  async getFamilyAdmins(@Param('familyId') familyId: string, @Request() req: any) {
+  async getFamilyAdmins(
+    @Param('familyId') familyId: string,
+    @Request() req: any,
+  ) {
     return await this.userService.getFamilyAdmins(familyId, req.user);
   }
 
@@ -145,9 +153,13 @@ export class UserController {
   async promoteToFamilyAdmin(
     @Param('familyId') familyId: string,
     @Param('userId') userId: string,
-    @Request() req: any
+    @Request() req: any,
   ) {
-    return await this.userService.promoteToFamilyAdmin(userId, familyId, req.user);
+    return await this.userService.promoteToFamilyAdmin(
+      userId,
+      familyId,
+      req.user,
+    );
   }
 
   @Roles('MASTER', 'DIRIGENTE')
@@ -156,8 +168,12 @@ export class UserController {
   async demoteFromFamilyAdmin(
     @Param('familyId') familyId: string,
     @Param('userId') userId: string,
-    @Request() req: any
+    @Request() req: any,
   ) {
-    return await this.userService.demoteFromFamilyAdmin(userId, familyId, req.user);
+    return await this.userService.demoteFromFamilyAdmin(
+      userId,
+      familyId,
+      req.user,
+    );
   }
 }

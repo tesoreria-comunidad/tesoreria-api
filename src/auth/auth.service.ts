@@ -10,6 +10,7 @@ import { UserService } from 'src/user/user.service';
 import { Request } from 'express';
 import { JwtService } from '@nestjs/jwt';
 import { IPayloadToken } from './schemas/auth.schemas';
+import { CreateUserDTO } from 'src/user/dto/user.dto';
 @Injectable()
 export class AuthService {
   constructor(
@@ -17,7 +18,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  public async register(data: User) {
+  public async register(data: CreateUserDTO) {
     return await this.userService.create(data);
   }
   public async validateUser(username: string, password: string) {
