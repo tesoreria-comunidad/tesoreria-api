@@ -399,18 +399,57 @@ export class UserService {
         user.password = candidate;
       }
 
+      const familyIdentifiers = [
+        ...new Set(users.map((u) => u.family_id || u.last_name)),
+      ];
+      const familiesMap: Record<string, string> = {}; // [name]: id
+      for (const familyName of familyIdentifiers) {
+        const family = await this.findOrCreateFamilyGroup(familyName, id_rama);
+        if (family) {
+          familiesMap[familyName] = family.id;
+        }
+      }
+
       // Hashear contraseñas y limpiar datos
       const usersWithHashedPasswords = await Promise.all(
-        users.map(async (user) => ({
-          ...user,
-          username: user.username.trim(),
-          password: await bcrypt.hash(
-            user.password,
-            +process.env.HASH_SALT || 10,
-          ),
-          birthdate: user.birthdate ? user.birthdate : null,
-          id_rama: id_rama ? id_rama : null,
-        })),
+        users.map(async (user) => {
+          const familyKey = user.family_id || user.last_name;
+          const familyId = familiesMap[familyKey];
+          const {
+            address,
+            citizenship,
+            dni,
+            email,
+            gender,
+            id_folder,
+            last_name,
+            name,
+            phone,
+            role,
+            family_role,
+          } = user;
+          return {
+            address,
+            citizenship,
+            dni,
+            email,
+            gender,
+            id_folder,
+            last_name,
+            name,
+            phone,
+            role,
+            family_role,
+            username: user.username.trim(),
+            password: await bcrypt.hash(
+              user.password,
+              +process.env.HASH_SALT || 10,
+            ),
+            birthdate: user.birthdate ? user.birthdate : null,
+            id_rama: id_rama ? id_rama : null,
+            id_family: familyId ? familyId : null,
+          };
+        }),
       );
 
       return await this.prisma.user.createMany({
@@ -429,6 +468,89 @@ export class UserService {
     }
   }
 
+  private async findOrCreateFamilyGroup(name: string, ramaId: string) {
+    try {
+      console.log('CASO DE GRUPO FAMILIAR: ', name);
+      const searchFamily = await this.prisma.family.findFirst({
+        where: {
+          name,
+        },
+      });
+
+      if (searchFamily) {
+        console.log('FAMILIA CREADA Y RETORANADA ', {
+          ID: searchFamily.id,
+          NAME: searchFamily.name,
+        });
+        return searchFamily;
+      } // usamos la familia creada para asignarla  al 2 usuario con el mismo familiId del csv.
+      const newBalance = await this.prisma.balance.create({
+        data: {
+          value: 0,
+          cfa_balance_value: 0,
+          custom_cuota: 0,
+          custom_cfa_value: 0,
+          is_custom_cuota: false,
+          is_custom_cfa: false,
+        },
+      });
+
+      console.log('CREAMOS GRUPO FAMILIAR: ', name);
+      return await this.prisma.family.create({
+        data: {
+          manage_by: ramaId,
+          name,
+          phone: '',
+          id_balance: newBalance.id,
+        },
+      });
+    } catch (error) {
+      console.error('Error creating family:', error);
+    }
+  }
+  private async createDefaultFamily(name: string, ramaId: string) {
+    try {
+      const searchFamily = await this.prisma.family.findFirst({
+        where: {
+          name: name,
+        },
+      });
+
+      let familyName = name;
+      if (searchFamily) {
+        let counter = 1;
+        let newFamilyName = `${name.trim()}-${counter}`;
+        while (
+          await this.prisma.family.findFirst({ where: { name: newFamilyName } })
+        ) {
+          counter++;
+          newFamilyName = `${name.trim()}-${counter}`;
+        }
+        familyName = newFamilyName;
+      }
+      const newBalance = await this.prisma.balance.create({
+        data: {
+          value: 0,
+          cfa_balance_value: 0,
+          custom_cuota: 0,
+          custom_cfa_value: 0,
+          is_custom_cuota: false,
+          is_custom_cfa: false,
+        },
+      });
+
+      return await this.prisma.family.create({
+        data: {
+          manage_by: ramaId,
+          name: familyName,
+          phone: '',
+          id_balance: newBalance.id,
+        },
+      });
+    } catch (error) {
+      console.error('Error creating family:', error);
+    }
+  }
   public async getUsersByFamily(familyId: string, loggedUser: any) {
     try {
       if (!familyId)
