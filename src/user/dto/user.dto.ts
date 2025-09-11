@@ -83,6 +83,10 @@ export class BulkCreateUserDTO {
   @IsOptional()
   password: string;
 
+  @IsString()
+  @IsOptional()
+  family_id: string;
+
   @IsString({ message: 'El nombre debe ser una cadena de texto' })
   @IsNotEmpty({ message: 'El nombre es requerido' })
   name: string;

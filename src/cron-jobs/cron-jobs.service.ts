@@ -59,6 +59,7 @@ export class CronJobsService {
       const families = await this.prisma.family.findMany({
         include: {
           balance: true,
+          users: true,
         },
       });
 
@@ -67,13 +68,19 @@ export class CronJobsService {
         return;
       }
 
-      this.logger.log(`Actualizando balances de ${families.length} familias`);
+      const activeFamilies = families.filter(
+        (f) => f.users.filter((u) => u.is_active).length > 0,
+      ); //  para que una familia se considere activa tiene que tener por lo menos un usuario activo.
+
+      this.logger.log(
+        `Actualizando balances de ${activeFamilies.length} familias`,
+      );
 
       let successCount = 0;
       let errorCount = 0;
 
       // Actualizar el balance de cada familia
-      for (const family of families) {
+      for (const family of activeFamilies) {
         try {
           const currentBalance = family.balance;
 
