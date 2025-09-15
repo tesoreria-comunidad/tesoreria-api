@@ -70,6 +70,7 @@ export class FamilyService {
       ) {
         throw error;
       }
+      console.error('Error al crear la familia: ', error);
       throw new InternalServerErrorException('Error al crear la familia');
     }
   }
@@ -138,6 +139,7 @@ export class FamilyService {
       if (error instanceof ConflictException) {
         throw error;
       }
+      console.error('Error al crear el usuario administrador de la familia: ', error);
       throw new InternalServerErrorException(
         'Error al crear el usuario administrador de la familia',
       );
@@ -154,7 +156,7 @@ export class FamilyService {
         },
       });
     } catch (error) {
-      console.error('Error al obtener las familias:', error);
+      console.error('Error al obtener las familias: ', error);
       throw new InternalServerErrorException('Error al obtener las familias');
     }
   }
@@ -186,6 +188,7 @@ export class FamilyService {
       ) {
         throw error;
       }
+      console.log('Error al obtener la familia: ', error);
       throw new InternalServerErrorException('Error al obtener la familia');
     }
   }
@@ -209,6 +212,7 @@ export class FamilyService {
       ) {
         throw error;
       }
+      console.log('Error al actualizar la familia: ', error);
       throw new InternalServerErrorException('Error al actualizar la familia');
     }
   }
@@ -231,6 +235,7 @@ export class FamilyService {
       ) {
         throw error;
       }
+      console.log('Error al eliminar la familia: ', error);
       throw new InternalServerErrorException('Error al eliminar la familia');
     }
   }
@@ -247,6 +252,7 @@ export class FamilyService {
         where: { [key]: value },
       });
     } catch (error) {
+      console.log('Error en la búsqueda de familia: ', error);
       throw new InternalServerErrorException('Error en la búsqueda de familia');
     }
   }

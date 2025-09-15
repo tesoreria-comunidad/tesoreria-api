@@ -10,6 +10,8 @@ export class RoleFilterService {
         return { ...where, id_rama: loggedUser.id_rama };
       case 'BENEFICIARIO':
         return { ...where, id: loggedUser.id };
+      case 'FAMILY':
+        return { ...where, id_familia: loggedUser.id_familia };
       default:
         return where;
     }

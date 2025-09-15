@@ -16,90 +16,90 @@ export class PersonService {
   constructor(private prisma: PrismaService, private roleFilterService: RoleFilterService) {}
 
   async getAllPersons(loggedUser : any): Promise<Person[]> {
-    const where = this.roleFilterService.apply(loggedUser);
-    return this.prisma.person.findMany({
-      where
-    });
+    try {
+      const where = this.roleFilterService.apply(loggedUser);
+      return this.prisma.person.findMany({
+        where
+      });
+    } catch (error) {
+      console.log('Error al obtener las personas:', error);
+      throw new InternalServerErrorException('Error al obtener las personas');
+    }
   }
 
   async getById(id: string, loggedUser: any): Promise<Person | null> {
-    const where = this.roleFilterService.apply(loggedUser);
-    return this.prisma.person.findUnique({
-      where,
-    });
+    try {
+      if (!id) {
+        throw new BadRequestException('ID es requerido');
+      }
+      const where = this.roleFilterService.apply(loggedUser);
+      return this.prisma.person.findUnique({
+        where,
+      });
+    } catch (error) {
+      console.log('Error al obtener la persona:', error);
+      throw new InternalServerErrorException('Error al obtener la persona');
+    }
+    
   }
 
   async create(data: CreatePersonDTO): Promise<Person> {
-    return this.prisma.person.create({
+    try {    
+      return this.prisma.person.create({
       data,
     });
+    } catch (error) {
+      console.log('Error al crear la persona:', error);
+      throw new InternalServerErrorException('Error al crear la persona');
+    }
   }
 
   async update(id: string, data: UpdatePersonDTO, loggedUser: any): Promise<Person> {
-    const where = this.roleFilterService.apply(loggedUser);
-    const cleanData = removeUndefined(data);
-    return this.prisma.person.update({
-      where,
-      data: cleanData,
-    });
+    try {
+      if (!id) {
+        throw new BadRequestException('ID es requerido');
+      }
+      const where = this.roleFilterService.apply(loggedUser);
+      const cleanData = removeUndefined(data);
+      return this.prisma.person.update({
+        where,
+        data: cleanData,
+      });
+    } catch (error) {
+      console.log('Error al actualizar la persona:', error);
+      throw new InternalServerErrorException('Error al actualizar la persona');
+    }
+    
   }
 
   async delete(id: string, loggedUser: any): Promise<Person> {
-    const where = this.roleFilterService.apply(loggedUser);
-    return this.prisma.person.delete({
-      where,
-    });
+    try {
+      if (!id) {
+        throw new BadRequestException('ID es requerido');
+      }
+      const where = this.roleFilterService.apply(loggedUser);
+      return this.prisma.person.delete({
+        where,
+      });
+    } catch (error) {
+      console.log('Error al eliminar la persona:', error);
+      throw new InternalServerErrorException('Error al eliminar la persona');
+    }
   }
 
   async findByDni(dni: string, loggedUser: any): Promise<Person | null> {
-    const where = this.roleFilterService.apply(loggedUser);
-    return this.prisma.person.findFirst({
-      where,
-    });
+    try {
+      if (!dni) {
+      throw new BadRequestException('DNI es requerido');
+    }
+      const where = this.roleFilterService.apply(loggedUser);
+      return this.prisma.person.findFirst({ where });
+    } catch (error) {
+      console.log('Error en la búsqueda por DNI:', error);
+      throw new InternalServerErrorException('Error en la búsqueda por DNI');
+    }
   }
 
-  // async bulkCreate(data: {
-  //   persons: CreatePersonDTO[];
-  //   id_rama?: string;
-  // }): Promise<Person[]> {
-  //   const { persons, id_rama } = data;
-  //   try {
-  //     const existing = await this.prisma.person.findMany({
-  //       where: {
-  //         OR: [
-  //           { email: { in: persons.map((p) => p.email) } },
-  //           { dni: { in: persons.map((p) => p.dni) } },
-  //         ],
-  //       },
-  //       select: { email: true, dni: true },
-  //     });
-
-  //     if (existing.length > 0) {
-  //       throw new BadRequestException(
-  //         `Ya existen personas con los siguientes emails o DNIs: ${existing
-  //           .map((e) => [e.email, e.dni].filter(Boolean).join(' / '))
-  //           .join(', ')}`,
-  //       );
-  //     }
-  //     await this.prisma.person.createMany({
-  //       data: persons,
-  //       skipDuplicates: true,
-  //     });
-
-  //     // Fetch and return the created persons with relations
-  //     return this.prisma.person.findMany({
-  //       include: {
-  //         user: true,
-  //         family: true,
-  //       },
-  //     });
-  //   } catch (error) {
-  //     console.log('error at persons bulk create', error);
-  //     throw new InternalServerErrorException(
-  //       `Error in persons bulkCreate: ${error instanceof Error ? error.message : String(error)}`,
-  //     );
-  //   }
-  // }
   async bulkCreate(data: {
     persons: CreatePersonDTO[];
     id_rama?: string;

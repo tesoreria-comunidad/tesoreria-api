@@ -17,6 +17,7 @@ export class PaymentsService {
         try {
             return await this.prisma.payment.create({ data });
         } catch (error) {
+            console.log('Error al crear el pago', error);
             throw new InternalServerErrorException('Error al crear el pago');
         }
     }
@@ -26,6 +27,7 @@ export class PaymentsService {
             const where  =this.roleFilterService.apply(loggedUser);
             return await this.prisma.payment.findMany();
         } catch (error) {
+            console.log('Error al obtener los pagos', error);
             throw new InternalServerErrorException('Error al obtener los pagos');
         }
     }
@@ -43,6 +45,7 @@ export class PaymentsService {
             if (error instanceof NotFoundException || error instanceof BadRequestException) {
                 throw error;
             }
+            console.log('Error al obtener el pago', error);
             throw new InternalServerErrorException('Error al obtener el pago');
         }
     }
@@ -62,6 +65,7 @@ export class PaymentsService {
             if (error instanceof NotFoundException || error instanceof BadRequestException) {
                 throw error;
             }
+            console.log('Error al actualizar el pago', error);
             throw new InternalServerErrorException('Error al actualizar el pago');
         }
     }
@@ -78,6 +82,7 @@ export class PaymentsService {
             if (error instanceof NotFoundException || error instanceof BadRequestException) {
                 throw error;
             }
+            console.log('Error al eliminar el pago', error);
             throw new InternalServerErrorException('Error al eliminar el pago');
         }
     }
