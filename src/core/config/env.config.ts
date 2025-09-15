@@ -16,15 +16,16 @@ const envZodModel = z
     message: '❌ DATABASE_URL y PROD_DB no pueden ser iguales',
     path: ['DATABASE_URL'], // Podés poner ambos, pero uno alcanza para marcar el error
   });
+if (process.env.NODE_ENV && process.env.NODE_ENV === 'development') {
+  const parsed = envZodModel.safeParse(process.env);
 
-const parsed = envZodModel.safeParse(process.env);
-
-if (!parsed.success) {
-  console.error('Error en variables de entorno:');
-  console.error(
-    parsed.error.errors.map((err) => ` - ${err.message}`).join('\n'),
-  );
-  process.exit(1);
+  if (!parsed.success) {
+    console.error('Error en variables de entorno:');
+    console.error(
+      parsed.error.errors.map((err) => ` - ${err.message}`).join('\n'),
+    );
+    process.exit(1);
+  }
 }
 
 type EnvType = z.infer<typeof envZodModel>;
