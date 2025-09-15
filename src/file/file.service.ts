@@ -23,36 +23,45 @@ export class FileService {
   }
 
   async upload(file: Express.Multer.File, token: string, family_id: string) {
-    const fileKey = `${Date.now()}-${uuid()}-${file.originalname}`;
-    const res = await this.s3.send(
-      new PutObjectCommand({
-        Bucket: this.bucketName,
-        Key: fileKey,
-        Body: file.buffer,
-        Metadata: {
-          family_id, // <-- FAMILIA VILLANUEVA HARCODED
-          token: token, // <-- valor dinámico si querés
-        },
-      }),
-    );
+    try {
+      const fileKey = `${Date.now()}-${uuid()}-${file.originalname}`;
+      const res = await this.s3.send(
+        new PutObjectCommand({
+          Bucket: this.bucketName,
+          Key: fileKey,
+          Body: file.buffer,
+          Metadata: {
+            family_id, // <-- FAMILIA VILLANUEVA HARCODED
+            token: token, // <-- valor dinámico si querés
+          },
+        }),
+      );
 
-    return {
-      ...res,
-      fileKey,
-    };
+      return {
+        ...res,
+        fileKey,
+      };
+      }
+    catch (error) {
+      console.log('Error al subir el archivo', error);
+      throw new Error('Error al subir el archivo');
+    }
   }
 
   async delete(fileName: string) {
-    const bucketName = 'reservepro-media';
-
-    await this.s3.send(
-      new DeleteObjectCommand({
-        Bucket: bucketName,
-        Key: fileName,
-      }),
-    );
-
-    return { message: `File ${fileName} deleted successfully` };
+    try {
+      const bucketName = 'reservepro-media';
+      await this.s3.send(
+        new DeleteObjectCommand({
+          Bucket: bucketName,
+          Key: fileName,
+        }),
+      );
+      return { message: `File ${fileName} deleted successfully` };
+    } catch (error) {
+      console.log('Error al eliminar el archivo', error);
+      throw new Error('Error al eliminar el archivo');
+    } 
   }
 }
 

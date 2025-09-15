@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaClient, Balance } from '@prisma/client';
 import { CreateBalanceDTO, UpdateBalanceDTO } from './dto/balance.dto';
-import { RoleFilterService } from 'src/services/RoleFilterService';
+import { RoleFilterService } from 'src/services/RoleFilter.service';
 import { PrismaService } from 'src/prisma.service';
 
 @Injectable()
@@ -25,6 +25,7 @@ export class BalanceService {
         },
       });
     } catch (error) {
+      console.log('Error al obtener los balances: ', error);
       throw new InternalServerErrorException('Error al obtener los balances');
     }
   }
@@ -55,6 +56,7 @@ export class BalanceService {
       ) {
         throw error;
       }
+      console.log('Error al obtener el balance: ', error);
       throw new InternalServerErrorException('Error al obtener el balance');
     }
   }
@@ -68,6 +70,7 @@ export class BalanceService {
         },
       });
     } catch (error) {
+      console.log('Error al crear el balance: ', error);
       throw new InternalServerErrorException('Error al crear el balance');
     }
   }
@@ -120,6 +123,7 @@ export class BalanceService {
       ) {
         throw error;
       }
+      console.log('Error al eliminar el balance: ', error);
       throw new InternalServerErrorException('Error al eliminar el balance');
     }
   }
@@ -134,6 +138,7 @@ export class BalanceService {
     try {
       return await this.prisma.balance.findFirst({ where: { [key]: value } });
     } catch (error) {
+      console.log('Error en la búsqueda de balance: ', error);
       throw new InternalServerErrorException('Error en la búsqueda');
     }
   }
