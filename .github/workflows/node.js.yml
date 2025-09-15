@@ -31,5 +31,5 @@ jobs:
         touch .env
         echo "${{secrets.PROD_ENV_FILE}}" > .env
     - run: npx prisma generate
-    - run: pm2 restart  tesorearia-api 
+    - run: pm2 restart  tesoreria-api
     
