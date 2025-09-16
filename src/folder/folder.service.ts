@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { Folder } from '@prisma/client';
 import { CreateFolderDTO, UpdateFolderDTO } from './dto/folder.dto';
-import { RoleFilterService } from 'src/services/RoleFilterService';
+import { RoleFilterService } from 'src/services/RoleFilter.service';
 import { PrismaService } from 'src/prisma.service';
 
 @Injectable()
@@ -25,6 +25,7 @@ export class FolderService {
         },
       });
     } catch (error) {
+      console.log('Error al obtener las carpetas: ', error);
       throw new InternalServerErrorException('Error al obtener las carpetas');
     }
   }
@@ -54,6 +55,7 @@ export class FolderService {
       ) {
         throw error;
       }
+      console.log('Error al obtener la carpeta: ', error);
       throw new InternalServerErrorException('Error al obtener la carpeta');
     }
   }
@@ -67,6 +69,7 @@ export class FolderService {
         },
       });
     } catch (error) {
+      console.log('Error al crear la carpeta: ', error);
       throw new InternalServerErrorException('Error al crear la carpeta');
     }
   }
@@ -94,6 +97,7 @@ export class FolderService {
       ) {
         throw error;
       }
+      console.log('Error al actualizar la carpeta: ', error);
       throw new InternalServerErrorException('Error al actualizar la carpeta');
     }
   }
@@ -117,6 +121,7 @@ export class FolderService {
       ) {
         throw error;
       }
+      console.log('Error al eliminar la carpeta: ', error);
       throw new InternalServerErrorException('Error al eliminar la carpeta');
     }
   }
@@ -125,6 +130,7 @@ export class FolderService {
     try {
       return await this.prisma.folder.findFirst({ where: { [key]: value } });
     } catch (error) {
+      console.log('Error en la búsqueda: ', error);
       throw new InternalServerErrorException('Error en la búsqueda');
     }
   }

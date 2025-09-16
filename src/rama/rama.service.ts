@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaClient, Rama } from '@prisma/client';
 import { CreateRamaDTO, UpdateRamaDTO } from './dto/rama.dto';
-import { RoleFilterService } from 'src/services/RoleFilterService';
+import { RoleFilterService } from 'src/services/RoleFilter.service';
 import { PrismaService } from 'src/prisma.service';
 
 @Injectable()
@@ -16,11 +16,9 @@ export class RamaService {
     private prisma: PrismaService,
     private roleFilterService: RoleFilterService,
   ) {}
-  public async getAllRama(loggedUser: any) {
+  public async getAllRama() {
     try {
-      const where = this.roleFilterService.apply(loggedUser);
       return await this.prisma.rama.findMany({
-        where,
         include: {
           users: true,
         },
@@ -57,6 +55,7 @@ export class RamaService {
       ) {
         throw error;
       }
+      console.log('Error al obtener la rama:', error);
       throw new InternalServerErrorException('Error al obtener la rama');
     }
   }
@@ -92,6 +91,7 @@ export class RamaService {
       ) {
         throw error;
       }
+      console.log('Error al crear la rama:', error);
       throw new InternalServerErrorException('Error al crear la rama');
     }
   }
@@ -142,6 +142,7 @@ export class RamaService {
       ) {
         throw error;
       }
+      console.log('Error al actualizar la rama:', error);
       throw new InternalServerErrorException('Error al actualizar la rama');
     }
   }
@@ -172,6 +173,7 @@ export class RamaService {
       ) {
         throw error;
       }
+      console.log('Error al eliminar la rama:', error);
       throw new InternalServerErrorException('Error al eliminar la rama');
     }
   }
@@ -180,6 +182,7 @@ export class RamaService {
     try {
       return await this.prisma.rama.findFirst({ where: { [key]: value } });
     } catch (error) {
+      console.log('Error en la búsqueda:', error);
       throw new InternalServerErrorException('Error en la búsqueda');
     }
   }

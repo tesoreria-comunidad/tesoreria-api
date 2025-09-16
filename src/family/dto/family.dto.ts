@@ -70,7 +70,7 @@ export class CreateFamilyDto {
   name: string;
 
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   phone: string;
 
   @IsString()

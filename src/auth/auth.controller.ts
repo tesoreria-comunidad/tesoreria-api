@@ -6,16 +6,16 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { User } from '@prisma/client';
 import { UserLoginDTO } from './dto/user-login.dto';
 import { Request as ExpressRequest } from 'express';
+import { CreateUserDTO } from 'src/user/dto/user.dto';
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
-  async register(@Body() user: User) {
-    return this.authService.register(user as User);
+  async register(@Body() user: CreateUserDTO) {
+    return this.authService.register(user);
   }
   @Post('login')
   async login(@Body() { username, password }: UserLoginDTO) {

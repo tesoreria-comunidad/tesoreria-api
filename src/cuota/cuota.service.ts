@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaClient, Cuota } from '@prisma/client';
 import { CreateCuotaDTO, UpdateCuotaDTO } from './dto/cuota.dto';
-import { RoleFilterService } from 'src/services/RoleFilterService';
+import { RoleFilterService } from 'src/services/RoleFilter.service';
 import { PrismaService } from 'src/prisma.service';
 
 @Injectable()
@@ -47,6 +47,7 @@ export class CuotaService {
       ) {
         throw error;
       }
+      console.log('Error al obtener la cuota: ', error);
       throw new InternalServerErrorException('Error al obtener la cuota');
     }
   }
@@ -72,6 +73,7 @@ export class CuotaService {
       if (error instanceof BadRequestException) {
         throw error;
       }
+      console.log('Error al crear la cuota: ', error);
       throw new InternalServerErrorException('Error al crear la cuota');
     }
   }
@@ -106,6 +108,7 @@ export class CuotaService {
       ) {
         throw error;
       }
+      console.log('Error al actualizar la cuota: ', error);
       throw new InternalServerErrorException('Error al actualizar la cuota');
     }
   }
@@ -129,6 +132,7 @@ export class CuotaService {
       ) {
         throw error;
       }
+      console.log('Error al eliminar la cuota: ', error);
       throw new InternalServerErrorException('Error al eliminar la cuota');
     }
   }
@@ -143,6 +147,7 @@ export class CuotaService {
     try {
       return await this.prisma.cuota.findFirst({ where: { [key]: value } });
     } catch (error) {
+      console.log('Error en la búsqueda de cuota: ', error);
       throw new InternalServerErrorException('Error en la búsqueda');
     }
   }
@@ -158,6 +163,7 @@ export class CuotaService {
         orderBy: { createdAt: 'desc' },
       });
     } catch (error) {
+      console.log('Error al obtener la cuota activa: ', error);
       throw new InternalServerErrorException(
         'Error al obtener la cuota activa',
       );

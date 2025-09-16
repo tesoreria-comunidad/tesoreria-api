@@ -9,7 +9,7 @@ import {
   CreateTransactionDTO,
   UpdateTransactionDTO,
 } from './dto/transactions.dto';
-import { RoleFilterService } from 'src/services/RoleFilterService';
+import { RoleFilterService } from 'src/services/RoleFilter.service';
 import { log } from 'console';
 import { TransactionDirection } from './constants';
 
@@ -51,8 +51,8 @@ export class TransactionsService {
       throw new NotFoundException(
         `Familia con ID ${data.id_family} no encontrada`,
       );
-
-    const newTransactionPayload: CreateTransactionDTO = {
+    try {
+      const newTransactionPayload: CreateTransactionDTO = {
       amount: data.amount,
       id_family: data.id_family,
       payment_method: data.payment_method,
@@ -61,26 +61,27 @@ export class TransactionsService {
       category: 'CUOTA',
       concept: `Cuota familiar - ${new Date().toLocaleDateString()}`,
       description: `Cuota mensual de la familia con ID ${data.id_family}`,
-    };
+      };
+      const transaction = await this.create(newTransactionPayload);
+        // Actualizamos el balance de la familia
+      const balance = await this.prisma.balance.findUnique({
+        where: { id: family.id_balance },
+      });
 
-    const transaction = await this.create(newTransactionPayload);
+      if (!balance)
+        throw new NotFoundException(
+          `Balance con ID ${family.id_balance} no encontrado para la familia ${data.id_family}`,
+        );
 
-    // Actualizamos el balance de la familia
-    const balance = await this.prisma.balance.findUnique({
-      where: { id: family.id_balance },
-    });
-
-    if (!balance)
-      throw new NotFoundException(
-        `Balance con ID ${family.id_balance} no encontrado para la familia ${data.id_family}`,
-      );
-
-    await this.prisma.balance.update({
-      where: { id: balance.id },
-      data: { value: balance.value + data.amount },
-    });
-
-    return transaction;
+      await this.prisma.balance.update({
+        where: { id: balance.id },
+        data: { value: balance.value + data.amount },
+      });
+      return transaction;
+    } catch (error) {
+      console.log('Error al crear la transacción familiar', error);
+      throw new InternalServerErrorException(`Error al crear la transacción familiar`);
+    }
   }
 
   async findAll(loggedUser: any) {
@@ -91,6 +92,7 @@ export class TransactionsService {
         orderBy: { createdAt: 'desc' },
       });
     } catch (error) {
+      console.log('Error al obtener las transacciones', error);
       throw new InternalServerErrorException(
         'Error al obtener las transacciones',
       );
@@ -116,6 +118,7 @@ export class TransactionsService {
       ) {
         throw error;
       }
+      console.log('Error al obtener la transacción', error);
       throw new InternalServerErrorException('Error al obtener la transacción');
     }
   }
@@ -132,6 +135,7 @@ export class TransactionsService {
       if (error instanceof BadRequestException) {
         throw error;
       }
+      console.log('Error al obtener las transacciones por familia', error);
       throw new InternalServerErrorException(
         'Error al obtener las transacciones por familia',
       );
@@ -155,6 +159,7 @@ export class TransactionsService {
       ) {
         throw error;
       }
+      console.log('Error al actualizar la transacción', error);
       throw new InternalServerErrorException(
         'Error al actualizar la transacción',
       );
@@ -178,6 +183,7 @@ export class TransactionsService {
       ) {
         throw error;
       }
+      console.log('Error al eliminar la transacción', error);
       throw new InternalServerErrorException(
         'Error al eliminar la transacción',
       );
@@ -207,6 +213,7 @@ export class TransactionsService {
         count: result.count,
       };
     } catch (error) {
+      console.log('Error al crear transacciones masivas', error);
       throw new InternalServerErrorException(
         'Error al crear transacciones en bloque',
       );
@@ -249,6 +256,7 @@ export class TransactionsService {
         expense: values.expense,
       }));
     } catch (error) {
+      console.log('Error al generar estadísticas', error);
       throw new InternalServerErrorException('Error al generar estadísticas');
     }
   }

@@ -16,18 +16,18 @@ model User {
   updatedAt   DateTime   @updatedAt
   username    String
   password    String
-  email       String     @unique
+  email       String?    @unique
   name        String
   last_name   String
-  birthdate   DateTime
-  citizenship String
-  address     String
-  phone       String
-  gender      Gender
-  dni         String
+  birthdate   DateTime?
+  citizenship String?
+  address     String?
+  phone       String?
+  gender      Gender?
+  dni         String?
   is_granted  Boolean    @default(false)
   is_active   Boolean    @default(true)
-  role        Role
+  role        Role?      @default(BENEFICIARIO)
   family_role familyRole @default(ADMIN)
   family      Family?    @relation(fields: [id_family], references: [id])
   folder      Folder?    @relation(fields: [id_folder], references: [id])
@@ -70,7 +70,7 @@ model Family {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   name         String
-  phone        String
+  phone        String?
   manage_by    String
   balance      Balance        @relation(fields: [id_balance], references: [id])
   payments     Payment[]

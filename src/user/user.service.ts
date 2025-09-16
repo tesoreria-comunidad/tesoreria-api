@@ -6,11 +6,15 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { User } from '@prisma/client';
-import { UpdateUserDTO, CreateUserDTO } from './dto/user.dto';
+import {
+  UpdateUserDTO,
+  CreateUserDTO,
+  BulkCreateUserDTO,
+} from './dto/user.dto';
 import { removeUndefined } from 'src/utils/remove-undefined.util';
 import { PrismaService } from 'src/prisma.service';
 import * as bcrypt from 'bcrypt';
-import { RoleFilterService } from 'src/services/RoleFilterService';
+import { RoleFilterService } from 'src/services/RoleFilter.service';
 
 @Injectable()
 export class UserService {
@@ -31,6 +35,7 @@ export class UserService {
         },
       });
     } catch (error) {
+      console.log("Error al obtener los usuarios: ", error);
       throw new InternalServerErrorException('Error al obtener los usuarios');
     }
   }
@@ -47,6 +52,7 @@ export class UserService {
         throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
       return user;
     } catch (error) {
+      console.log('Error al obtener usuario por ID', error);
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
@@ -152,6 +158,7 @@ export class UserService {
         },
       });
     } catch (error) {
+      console.log('Error al crear usuario', error);
       if (
         error instanceof BadRequestException ||
         error instanceof ConflictException
@@ -172,7 +179,8 @@ export class UserService {
         where,
         include: { rama: true, folder: true, family: true },
       });
-    } catch {
+    } catch (error) {
+      console.log('Error en la búsqueda de usuario', error);
       throw new InternalServerErrorException('Error en la búsqueda de usuario');
     }
   }
@@ -299,6 +307,7 @@ export class UserService {
       await this.getById(id, loggedUser);
       return await this.prisma.user.delete({ where: { id } });
     } catch (error) {
+      console.log('Error al eliminar usuario', error);
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
@@ -309,7 +318,7 @@ export class UserService {
   }
 
   public async bulkCreate(
-    users: CreateUserDTO[],
+    users: BulkCreateUserDTO[],
     id_rama: string,
     loggedUser: any,
   ) {
@@ -329,21 +338,6 @@ export class UserService {
           'Debe proporcionar una lista de usuarios',
         );
       }
-
-      // Validación de usernames existentes
-      const usernames = users.map((u) => u.username);
-      const existingUsernames = await this.prisma.user.findMany({
-        where: { username: { in: usernames } },
-        select: { username: true },
-      });
-
-      if (existingUsernames.length > 0) {
-        const conflicts = existingUsernames.map((u) => u.username);
-        throw new ConflictException(
-          `Ya existen usuarios con los siguientes usernames: ${conflicts.join(', ')}`,
-        );
-      }
-
       // Validación de emails existentes
       const emails = users.map((u) => u.email?.toLowerCase()).filter(Boolean);
       if (emails.length > 0) {
@@ -386,24 +380,81 @@ export class UserService {
         }
       }
 
+      let finalData: CreateUserDTO;
+
+      // Generar username y password automaticamente para cada usuario
+      const generatedUsernames = new Set<string>();
+      for (const user of users) {
+        // Crear la base a partir del name y last_name
+        const base = `${user.name.toLowerCase().trim()}.${user.last_name.toLowerCase().trim()}`;
+        let candidate = base;
+        let counter = 1;
+
+        // Verificar en la base de datos y en los usuarios ya generados localmente para asegurar unicidad
+        while (
+          generatedUsernames.has(candidate) ||
+          (await this.prisma.user.findFirst({ where: { username: candidate } }))
+        ) {
+          candidate = `${base}.${counter}`;
+          counter++;
+        }
+
+        generatedUsernames.add(candidate);
+        user.username = candidate;
+        user.password = candidate;
+      }
+
+      const familyIdentifiers = [
+        ...new Set(users.map((u) => u.family_id || u.last_name)),
+      ];
+      const familiesMap: Record<string, string> = {}; // [name]: id
+      for (const familyName of familyIdentifiers) {
+        const family = await this.findOrCreateFamilyGroup(familyName, id_rama);
+        if (family) {
+          familiesMap[familyName] = family.id;
+        }
+      }
+
       // Hashear contraseñas y limpiar datos
       const usersWithHashedPasswords = await Promise.all(
-        users.map(async (user) => ({
-          ...user,
-          username: user.username.trim(),
-          name: user.name.trim(),
-          last_name: user.last_name.trim(),
-          address: user.address.trim(),
-          phone: user.phone.trim(),
-          email: user.email.trim().toLowerCase(),
-          dni: user.dni.trim(),
-          citizenship: user.citizenship.trim(),
-          password: await bcrypt.hash(
-            user.password,
-            +process.env.HASH_SALT || 10,
-          ),
-          id_rama: id_rama || user.id_rama || null,
-        })),
+        users.map(async (user) => {
+          const familyKey = user.family_id || user.last_name;
+          const familyId = familiesMap[familyKey];
+          const {
+            address,
+            citizenship,
+            dni,
+            email,
+            gender,
+            id_folder,
+            last_name,
+            name,
+            phone,
+            role,
+            family_role,
+          } = user;
+          return {
+            address,
+            citizenship,
+            dni,
+            email,
+            gender,
+            id_folder,
+            last_name,
+            name,
+            phone,
+            role,
+            family_role,
+            username: user.username.trim(),
+            password: await bcrypt.hash(
+              user.password,
+              +process.env.HASH_SALT || 10,
+            ),
+            birthdate: user.birthdate ? user.birthdate : null,
+            id_rama: id_rama ? id_rama : null,
+            id_family: familyId ? familyId : null,
+          };
+        }),
       );
 
       return await this.prisma.user.createMany({
@@ -422,6 +473,89 @@ export class UserService {
     }
   }
 
+  private async findOrCreateFamilyGroup(name: string, ramaId: string) {
+    try {
+      console.log('CASO DE GRUPO FAMILIAR: ', name);
+      const searchFamily = await this.prisma.family.findFirst({
+        where: {
+          name,
+        },
+      });
+
+      if (searchFamily) {
+        console.log('FAMILIA CREADA Y RETORANADA ', {
+          ID: searchFamily.id,
+          NAME: searchFamily.name,
+        });
+        return searchFamily;
+      } // usamos la familia creada para asignarla  al 2 usuario con el mismo familiId del csv.
+      const newBalance = await this.prisma.balance.create({
+        data: {
+          value: 0,
+          cfa_balance_value: 0,
+          custom_cuota: 0,
+          custom_cfa_value: 0,
+          is_custom_cuota: false,
+          is_custom_cfa: false,
+        },
+      });
+
+      console.log('CREAMOS GRUPO FAMILIAR: ', name);
+      return await this.prisma.family.create({
+        data: {
+          manage_by: ramaId,
+          name,
+          phone: '',
+          id_balance: newBalance.id,
+        },
+      });
+    } catch (error) {
+      console.error('Error creating family:', error);
+    }
+  }
+  private async createDefaultFamily(name: string, ramaId: string) {
+    try {
+      const searchFamily = await this.prisma.family.findFirst({
+        where: {
+          name: name,
+        },
+      });
+
+      let familyName = name;
+      if (searchFamily) {
+        let counter = 1;
+        let newFamilyName = `${name.trim()}-${counter}`;
+        while (
+          await this.prisma.family.findFirst({ where: { name: newFamilyName } })
+        ) {
+          counter++;
+          newFamilyName = `${name.trim()}-${counter}`;
+        }
+        familyName = newFamilyName;
+      }
+      const newBalance = await this.prisma.balance.create({
+        data: {
+          value: 0,
+          cfa_balance_value: 0,
+          custom_cuota: 0,
+          custom_cfa_value: 0,
+          is_custom_cuota: false,
+          is_custom_cfa: false,
+        },
+      });
+
+      return await this.prisma.family.create({
+        data: {
+          manage_by: ramaId,
+          name: familyName,
+          phone: '',
+          id_balance: newBalance.id,
+        },
+      });
+    } catch (error) {
+      console.error('Error creating family:', error);
+    }
+  }
   public async getUsersByFamily(familyId: string, loggedUser: any) {
     try {
       if (!familyId)
@@ -435,6 +569,7 @@ export class UserService {
         orderBy: [{ family_role: 'asc' }, { name: 'asc' }],
       });
     } catch (error) {
+      console.log('Error al obtener usuarios por familia', error);
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
@@ -447,31 +582,42 @@ export class UserService {
   }
 
   public async getFamilyAdmin(familyId: string, loggedUser: any) {
-    const where = this.roleFilterService.apply(loggedUser, {
-      id_family: familyId,
-      family_role: 'ADMIN',
-    });
-    const admin = await this.prisma.user.findFirst({
-      where,
-      include: { rama: true, folder: true, family: true },
-    });
-    if (!admin)
-      throw new NotFoundException(
-        'No se encontró un administrador para esta familia',
-      );
-    return admin;
+    try {
+      const where = this.roleFilterService.apply(loggedUser, {
+        id_family: familyId,
+        family_role: 'ADMIN',
+      });
+      const admin = await this.prisma.user.findFirst({
+        where,
+        include: { rama: true, folder: true, family: true },
+      });
+      if (!admin)
+        throw new NotFoundException(
+          'No se encontró un administrador para esta familia',
+        );
+      return admin;
+    } catch (error) {
+      console.log('Error al obtener administrador de familia', error);
+    }
   }
 
   public async getFamilyAdmins(familyId: string, loggedUser: any) {
-    const where = this.roleFilterService.apply(loggedUser, {
-      id_family: familyId,
-      family_role: 'ADMIN',
-    });
-    return await this.prisma.user.findMany({
-      where,
-      include: { rama: true, folder: true, family: true },
-      orderBy: { name: 'asc' },
-    });
+    try {
+      const where = this.roleFilterService.apply(loggedUser, {
+        id_family: familyId,
+        family_role: 'ADMIN',
+      });
+      return await this.prisma.user.findMany({
+        where,
+        include: { rama: true, folder: true, family: true },
+        orderBy: { name: 'asc' },
+      });
+    } catch (error) {
+      console.log('Error al obtener administradores de familia', error);
+      throw new InternalServerErrorException(
+        'Error al obtener administradores de familia',
+      );
+    }
   }
 
   public async promoteToFamilyAdmin(
@@ -526,6 +672,7 @@ export class UserService {
         },
       });
     } catch (error) {
+      console.log('Error al promover usuario a administrador', error);
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
@@ -596,6 +743,7 @@ export class UserService {
         },
       });
     } catch (error) {
+      console.log('Error al degradar usuario de administrador', error);
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
@@ -610,16 +758,28 @@ export class UserService {
 
   // Necesario para uso en AuthService (sin restricciones de rol)
   public async getByIdInternal(id: string) {
-    return this.prisma.user.findFirst({
+    try {
+      return this.prisma.user.findFirst({
       where: { id },
       include: { rama: true, folder: true, family: true },
     });
+    } catch (error) {
+      console.log('Error al obtener usuario por ID', error);
+      throw new InternalServerErrorException(
+        'Error al obtener usuario por ID',
+      );
+    }
   }
 
   public async findByInternal(where: Partial<User>) {
-    return this.prisma.user.findFirst({
+    try {
+      return this.prisma.user.findFirst({
       where,
       include: { rama: true, folder: true, family: true },
     });
+    } catch (error) {
+      console.log('Error en la búsqueda de usuario', error);
+      throw new InternalServerErrorException('Error en la búsqueda de usuario');
+    }
   }
 }
