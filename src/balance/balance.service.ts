@@ -142,4 +142,37 @@ export class BalanceService {
       throw new InternalServerErrorException('Error en la búsqueda');
     }
   }
+
+  public async updateBalanceForFamily(familyId: string): Promise<void> {
+    // 1. Obtener la familia con usuarios y balance
+    const family = await this.prisma.family.findUnique({
+      where: { id: familyId },
+      include: {
+        users: true,
+        balance: true,
+      },
+    });
+    if (!family) throw new Error('Familia no encontrada');
+
+    // 2. Contar usuarios activos
+    const cantidadActivos = family.users.filter(u => u.is_active).length;
+
+    // 3. Buscar el valor de cuota según cantidad de usuarios activos
+    let cuotaConfig = await this.prisma.cuotaPorHermanos.findFirst({
+      where: { cantidad: cantidadActivos },
+    });
+
+    // Si no hay configuración, usar un valor por defecto (ejemplo: 0)
+    const valorCuota = cuotaConfig?.valor ?? 0;
+    // 4. Aplicar la fórmula
+    const montoADescontar = valorCuota * cantidadActivos * 0.8;
+
+    // 5. Actualizar el balance
+    const nuevoBalance = family.balance.value - montoADescontar;
+    await this.prisma.balance.update({
+      where: { id: family.balance.id },
+      data: { value: nuevoBalance },
+    });
+  }
+
 }

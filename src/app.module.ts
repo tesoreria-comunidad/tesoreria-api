@@ -9,6 +9,7 @@ import { FamilyModule } from './family/family.module';
 import { RamaModule } from './rama/rama.module';
 import { FolderModule } from './folder/folder.module';
 import { CuotaModule } from './cuota/cuota.module';
+import { CuotaPorHermanosModule } from './cuota-por-hermanos/cuota-por-hermanos.module';
 import { BalanceModule } from './balance/balance.module';
 import { UserController } from './user/user.controller';
 import { UserService } from './user/user.service';
@@ -25,6 +26,7 @@ import { FileModule } from './file/file.module';
     RamaModule,
     FolderModule,
     CuotaModule,
+    CuotaPorHermanosModule,
     BalanceModule,
     UserModule,
     FamilyModule,
