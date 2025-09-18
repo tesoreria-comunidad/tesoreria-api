@@ -155,7 +155,7 @@ export class BalanceService {
     if (!family) throw new Error('Familia no encontrada');
 
     // 2. Contar usuarios activos
-    const cantidadActivos = family.users.filter(u => u.is_active).length;
+    const cantidadActivos = family.users.filter(u => u.is_active &&  !u.is_granted).length;
 
     // 3. Buscar el valor de cuota según cantidad de usuarios activos
     let cuotaConfig = await this.prisma.cuotaPorHermanos.findFirst({
