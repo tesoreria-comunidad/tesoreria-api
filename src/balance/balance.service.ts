@@ -3,14 +3,16 @@ import {
   NotFoundException,
   BadRequestException,
   InternalServerErrorException,
+  Logger,
 } from '@nestjs/common';
-import { PrismaClient, Balance } from '@prisma/client';
+import { PrismaClient, Balance, Family } from '@prisma/client';
 import { CreateBalanceDTO, UpdateBalanceDTO } from './dto/balance.dto';
 import { RoleFilterService } from 'src/services/RoleFilter.service';
 import { PrismaService } from 'src/prisma.service';
 
 @Injectable()
 export class BalanceService {
+  private readonly logger = new Logger(BalanceService.name);
   constructor(
     private prisma: PrismaService,
     private roleFilterService: RoleFilterService,
@@ -102,6 +104,68 @@ export class BalanceService {
       throw new InternalServerErrorException('Error al actualizar el balance');
     }
   }
+  public async resetAll() {
+    try {
+      await this.prisma.balance.updateMany({
+        data: { value: 0 },
+      });
+    } catch (error) {
+      console.log('Error al actualizar el balance', error);
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Error al actualizar el balance');
+    }
+  }
+  public async updateAll() {
+    try {
+      const families = await this.prisma.family.findMany({
+        include: {
+          balance: true,
+          users: true,
+        },
+      });
+      const activeFamilies = families.filter(
+        (f) => f.users.filter((u) => u.is_active && !u.is_granted).length > 0,
+      ); //  para que una familia se considere activa tiene que tener por lo menos un usuario activo.
+      this.logger.log(
+        `Actualizando balances de ${activeFamilies.length} familias`,
+      );
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const family of activeFamilies) {
+        try {
+          await this.updateBalanceForFamily(family.id);
+
+          successCount++;
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : 'Error desconocido';
+          const errorStack = error instanceof Error ? error.stack : undefined;
+          this.logger.error(
+            `Error al actualizar balance de familia ${family.name}: ${errorMessage}`,
+            errorStack,
+          );
+          errorCount++;
+        }
+      }
+
+      return `Actualización mensual completada. Éxitos: ${successCount}, Errores: ${errorCount}`;
+    } catch (error) {
+      console.log('Error al actualizar el balance', error);
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Error al actualizar el balance');
+    }
+  }
 
   public async delete(id: string, loggedUser: any) {
     try {
@@ -143,7 +207,7 @@ export class BalanceService {
     }
   }
 
-  public async updateBalanceForFamily(familyId: string): Promise<void> {
+  public async updateBalanceForFamily(familyId: string): Promise<Family> {
     // 1. Obtener la familia con usuarios y balance
     const family = await this.prisma.family.findUnique({
       where: { id: familyId },
@@ -154,25 +218,38 @@ export class BalanceService {
     });
     if (!family) throw new Error('Familia no encontrada');
 
+    const familyBalance = await this.prisma.balance.findUnique({
+      where: {
+        id: family.id_balance,
+      },
+    });
+    if (!familyBalance)
+      throw new Error(`Balance de la Familia ${family.name} no encontrado`);
     // 2. Contar usuarios activos
-    const cantidadActivos = family.users.filter(u => u.is_active &&  !u.is_granted).length;
+    const usersCount = family.users.filter(
+      (u) => u.is_active && !u.is_granted,
+    ).length;
 
     // 3. Buscar el valor de cuota según cantidad de usuarios activos
-    let cuotaConfig = await this.prisma.cuotaPorHermanos.findFirst({
-      where: { cantidad: cantidadActivos },
+    const CPH = await this.prisma.cuotaPorHermanos.findFirst({
+      where: { cantidad: usersCount },
     });
 
     // Si no hay configuración, usar un valor por defecto (ejemplo: 0)
-    const valorCuota = cuotaConfig?.valor ?? 0;
-    // 4. Aplicar la fórmula
-    const montoADescontar = valorCuota * cantidadActivos * 0.8;
+    const cuotaValue = CPH?.valor ?? 0;
 
     // 5. Actualizar el balance
-    const nuevoBalance = family.balance.value - montoADescontar;
+    const oldBalance = familyBalance.value;
+    const newBalance = oldBalance - cuotaValue;
     await this.prisma.balance.update({
       where: { id: family.balance.id },
-      data: { value: nuevoBalance },
+      data: { value: newBalance },
     });
-  }
 
+    this.logger.log(
+      `Balance actualizado para familia ${family.name}: $${family.balance.value} -> $${newBalance} (Cuota aplicada: $${cuotaValue})`,
+    );
+
+    return family;
+  }
 }

@@ -53,17 +53,17 @@ export class TransactionsService {
       );
     try {
       const newTransactionPayload: CreateTransactionDTO = {
-      amount: data.amount,
-      id_family: data.id_family,
-      payment_method: data.payment_method,
-      payment_date: data.payment_date || new Date().toISOString(),
-      direction: TransactionDirection.INCOME,
-      category: 'CUOTA',
-      concept: `Cuota familiar - ${new Date().toLocaleDateString()}`,
-      description: `Cuota mensual de la familia con ID ${data.id_family}`,
+        amount: data.amount,
+        id_family: data.id_family,
+        payment_method: data.payment_method,
+        payment_date: data.payment_date || new Date().toISOString(),
+        direction: TransactionDirection.INCOME,
+        category: 'CUOTA',
+        concept: `Cuota familiar - ${new Date().toLocaleDateString()}`,
+        description: `Cuota mensual de la familia con ID ${data.id_family}`,
       };
       const transaction = await this.create(newTransactionPayload);
-        // Actualizamos el balance de la familia
+      // Actualizamos el balance de la familia
       const balance = await this.prisma.balance.findUnique({
         where: { id: family.id_balance },
       });
@@ -80,7 +80,9 @@ export class TransactionsService {
       return transaction;
     } catch (error) {
       console.log('Error al crear la transacción familiar', error);
-      throw new InternalServerErrorException(`Error al crear la transacción familiar`);
+      throw new InternalServerErrorException(
+        `Error al crear la transacción familiar`,
+      );
     }
   }
 
@@ -219,7 +221,6 @@ export class TransactionsService {
       );
     }
   }
-
   async getMonthlyStats(loggedUser: any) {
     try {
       // Traemos todas las transacciones con fecha y dirección
@@ -233,28 +234,40 @@ export class TransactionsService {
         },
       });
 
-      // Reducimos a un formato { [mes]: { income, expense } }
+      // Reducimos a un formato { [YYYY-MM]: { income, expense } }
       const stats: Record<string, { income: number; expense: number }> = {};
 
       transactions.forEach((tx) => {
-        const month = tx.payment_date.toLocaleString('en-US', {
-          month: 'long',
-        }); // "January"
-        if (!stats[month]) stats[month] = { income: 0, expense: 0 };
+        const year = tx.payment_date.getFullYear();
+        const month = tx.payment_date.getMonth() + 1; // 0 = Ene, 11 = Dic
+        const key = `${year}-${String(month).padStart(2, '0')}`; // Ej: "2025-09"
+
+        if (!stats[key]) stats[key] = { income: 0, expense: 0 };
 
         if (tx.direction === 'INCOME') {
-          stats[month].income += tx.amount;
+          stats[key].income += tx.amount;
         } else {
-          stats[month].expense += tx.amount;
+          stats[key].expense += tx.amount;
         }
       });
 
-      // Convertimos a array para Recharts
-      return Object.entries(stats).map(([month, values]) => ({
-        month,
-        income: values.income,
-        expense: values.expense,
-      }));
+      // Convertimos a array y ordenamos cronológicamente
+      const result = Object.entries(stats)
+        .map(([key, values]) => {
+          const [year, month] = key.split('-');
+          const date = new Date(Number(year), Number(month) - 1);
+
+          return {
+            key,
+            month: date.toLocaleString('es-ES', { month: 'long' }), // ahora en español
+            year: Number(year),
+            income: values.income,
+            expense: values.expense,
+          };
+        })
+        .sort((a, b) => a.key.localeCompare(b.key));
+
+      return result;
     } catch (error) {
       console.log('Error al generar estadísticas', error);
       throw new InternalServerErrorException('Error al generar estadísticas');
