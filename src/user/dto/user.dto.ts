@@ -31,10 +31,8 @@ export class CreateUserDTO {
   role: Role;
 
   @IsOptional()
-  @IsOptional()
   id_folder: string | null;
 
-  @IsOptional()
   @IsOptional()
   id_rama: string | null;
 
@@ -46,7 +44,7 @@ export class CreateUserDTO {
   @IsOptional()
   phone: string;
 
-  @IsEmail({}, { message: 'Debe proporcionar un email válido' })
+  @IsString()
   @IsOptional()
   email: string;
 
@@ -58,13 +56,13 @@ export class CreateUserDTO {
   @IsOptional()
   dni: string;
 
-  @IsUUID('4', { message: 'El ID de familia debe ser un UUID válido' })
+  @IsString({ message: 'El id_family debe ser una cadena de texto' })
   @IsOptional()
   id_family: string | null;
 
-  @IsDate({ message: 'La fecha de nacimiento debe ser una fecha válida' })
+  @IsString()
   @IsOptional()
-  birthdate: Date;
+  birthdate: string;
 
   @IsString({ message: 'La ciudadanía debe ser una cadena de texto' })
   @IsOptional()
