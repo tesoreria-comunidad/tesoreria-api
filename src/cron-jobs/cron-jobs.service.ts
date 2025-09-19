@@ -1,13 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { CronJob } from 'cron';
 import { PrismaService } from '../prisma.service';
+import { Balance } from '@prisma/client';
+import { BalanceService } from 'src/balance/balance.service';
 
 @Injectable()
 export class CronJobsService {
   private readonly logger = new Logger(CronJobsService.name);
   private monthlyBalanceUpdateJob: CronJob;
 
-  constructor(private prisma: PrismaService) {
+  constructor(
+    private prisma: PrismaService,
+    private balanceService: BalanceService,
+  ) {
     this.initializeCronJobs();
   }
 
@@ -69,7 +74,7 @@ export class CronJobsService {
       }
 
       const activeFamilies = families.filter(
-        (f) => f.users.filter((u) => u.is_active).length > 0,
+        (f) => f.users.filter((u) => u.is_active && !u.is_granted).length > 0,
       ); //  para que una familia se considere activa tiene que tener por lo menos un usuario activo.
 
       this.logger.log(
@@ -82,28 +87,7 @@ export class CronJobsService {
       // Actualizar el balance de cada familia
       for (const family of activeFamilies) {
         try {
-          const currentBalance = family.balance;
-
-          // Determinar qué valor de cuota usar
-          const cuotaToApply = currentBalance.is_custom_cuota
-            ? currentBalance.custom_cuota
-            : activeCuota.value;
-
-          // Calcular el nuevo balance (restar la cuota)
-          const newBalanceValue = currentBalance.value - cuotaToApply;
-
-          // Actualizar el balance
-          await this.prisma.balance.update({
-            where: { id: currentBalance.id },
-            data: {
-              value: newBalanceValue,
-              updatedAt: new Date(),
-            },
-          });
-
-          this.logger.log(
-            `Balance actualizado para familia ${family.name}: $${currentBalance.value} -> $${newBalanceValue} (Cuota aplicada: $${cuotaToApply})`,
-          );
+          await this.balanceService.updateBalanceForFamily(family.id);
 
           successCount++;
         } catch (error) {
