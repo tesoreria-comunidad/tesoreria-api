@@ -70,8 +70,8 @@ model Family {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   name         String
-  phone        String
   manage_by    String
+  phone        String?
   balance      Balance        @relation(fields: [id_balance], references: [id])
   payments     Payment[]
   transactions Transactions[]
@@ -112,8 +112,8 @@ model Cuota {
 
 model CuotaPorHermanos {
   id        String   @id @default(uuid())
-  cantidad  Int      // cantidad de usuarios activos
-  valor     Float    // valor de cuota base para esa cantidad
+  cantidad  Int
+  valor     Float
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

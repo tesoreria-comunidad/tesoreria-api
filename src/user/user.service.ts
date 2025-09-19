@@ -35,7 +35,7 @@ export class UserService {
         },
       });
     } catch (error) {
-      console.log("Error al obtener los usuarios: ", error);
+      console.log('Error al obtener los usuarios: ', error);
       throw new InternalServerErrorException('Error al obtener los usuarios');
     }
   }
@@ -66,7 +66,7 @@ export class UserService {
     try {
       // Verificar si ya existe un usuario con el mismo username
       const existingUserByUsername = await this.prisma.user.findFirst({
-        where: { username: data.username.trim() },
+        where: { username: data.username },
       });
 
       if (existingUserByUsername) {
@@ -75,22 +75,26 @@ export class UserService {
         );
       }
 
-      // Verificar si ya existe un usuario con el mismo email
-      const existingUserByEmail = await this.prisma.user.findFirst({
-        where: { email: data.email.trim().toLowerCase() },
-      });
+      if (data.email) {
+        // Verificar si ya existe un usuario con el mismo email
+        const existingUserByEmail = await this.prisma.user.findFirst({
+          where: { email: data.email },
+        });
 
-      if (existingUserByEmail) {
-        throw new ConflictException('Ya existe un usuario con ese email');
+        if (existingUserByEmail) {
+          throw new ConflictException('Ya existe un usuario con ese email');
+        }
       }
 
-      // Verificar si ya existe un usuario con el mismo DNI
-      const existingUserByDNI = await this.prisma.user.findFirst({
-        where: { dni: data.dni.trim() },
-      });
+      if (data.dni) {
+        // Verificar si ya existe un usuario con el mismo DNI
+        const existingUserByDNI = await this.prisma.user.findFirst({
+          where: { dni: data.dni },
+        });
 
-      if (existingUserByDNI) {
-        throw new ConflictException('Ya existe un usuario con ese DNI');
+        if (existingUserByDNI) {
+          throw new ConflictException('Ya existe un usuario con ese DNI');
+        }
       }
 
       // Verificar que la rama existe si se proporciona
@@ -131,14 +135,14 @@ export class UserService {
 
       // Preparar datos limpios para la creación
       const cleanData = {
-        username: data.username.trim(),
-        name: data.name.trim(),
-        last_name: data.last_name.trim(),
-        address: data.address.trim(),
-        phone: data.phone.trim(),
-        email: data.email.trim().toLowerCase(),
-        dni: data.dni.trim(),
-        citizenship: data.citizenship.trim(),
+        username: data.username,
+        name: data.name,
+        last_name: data.last_name,
+        address: data.address,
+        phone: data.phone,
+        email: data.email?.toLowerCase(),
+        dni: data.dni,
+        citizenship: data.citizenship,
         password: hashedPassword,
         birthdate: data.birthdate,
         gender: data.gender,
@@ -760,23 +764,21 @@ export class UserService {
   public async getByIdInternal(id: string) {
     try {
       return this.prisma.user.findFirst({
-      where: { id },
-      include: { rama: true, folder: true, family: true },
-    });
+        where: { id },
+        include: { rama: true, folder: true, family: true },
+      });
     } catch (error) {
       console.log('Error al obtener usuario por ID', error);
-      throw new InternalServerErrorException(
-        'Error al obtener usuario por ID',
-      );
+      throw new InternalServerErrorException('Error al obtener usuario por ID');
     }
   }
 
   public async findByInternal(where: Partial<User>) {
     try {
       return this.prisma.user.findFirst({
-      where,
-      include: { rama: true, folder: true, family: true },
-    });
+        where,
+        include: { rama: true, folder: true, family: true },
+      });
     } catch (error) {
       console.log('Error en la búsqueda de usuario', error);
       throw new InternalServerErrorException('Error en la búsqueda de usuario');
