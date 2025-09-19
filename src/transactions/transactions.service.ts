@@ -221,7 +221,6 @@ export class TransactionsService {
       );
     }
   }
-
   async getMonthlyStats(loggedUser: any) {
     try {
       // Traemos todas las transacciones con fecha y dirección
@@ -240,7 +239,7 @@ export class TransactionsService {
 
       transactions.forEach((tx) => {
         const year = tx.payment_date.getFullYear();
-        const month = tx.payment_date.getMonth() + 1; // 0 = Jan, 11 = Dec
+        const month = tx.payment_date.getMonth() + 1; // 0 = Ene, 11 = Dic
         const key = `${year}-${String(month).padStart(2, '0')}`; // Ej: "2025-09"
 
         if (!stats[key]) stats[key] = { income: 0, expense: 0 };
@@ -260,13 +259,13 @@ export class TransactionsService {
 
           return {
             key,
-            month: date.toLocaleString('en-US', { month: 'long' }), // "September"
+            month: date.toLocaleString('es-ES', { month: 'long' }), // ahora en español
             year: Number(year),
             income: values.income,
             expense: values.expense,
           };
         })
-        .sort((a, b) => a.key.localeCompare(b.key)); // ordena por YYYY-MM
+        .sort((a, b) => a.key.localeCompare(b.key));
 
       return result;
     } catch (error) {
