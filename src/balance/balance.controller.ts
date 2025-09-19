@@ -53,6 +53,18 @@ export class BalanceController {
   ) {
     return await this.balanceService.update(id, body, req.user);
   }
+  @Post('/reset-all')
+  @Roles('MASTER')
+  @HttpCode(HttpStatus.OK)
+  async ResetAll() {
+    return await this.balanceService.resetAll();
+  }
+  @Post('/update-all')
+  @Roles('MASTER')
+  @HttpCode(HttpStatus.OK)
+  async UpdateAll() {
+    return await this.balanceService.updateAll();
+  }
 
   @Delete(':id')
   @Roles('MASTER')
