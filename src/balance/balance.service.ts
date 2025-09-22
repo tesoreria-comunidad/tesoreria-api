@@ -225,6 +225,11 @@ export class BalanceService {
     });
     if (!familyBalance)
       throw new Error(`Balance de la Familia ${family.name} no encontrado`);
+    let cuotaValue = 0;
+    // 1b. Si la familia tiene una cuota personalizada, se usa el valor personalizado
+    if (familyBalance.is_custom_cuota) {
+      cuotaValue = familyBalance.custom_cuota;
+    } else {
     // 2. Contar usuarios activos
     const usersCount = family.users.filter(
       (u) => u.is_active && !u.is_granted,
@@ -236,7 +241,8 @@ export class BalanceService {
     });
 
     // Si no hay configuración, usar un valor por defecto (ejemplo: 0)
-    const cuotaValue = CPH?.valor ?? 0;
+     cuotaValue = CPH?.valor ?? 0;
+    }
 
     // 5. Actualizar el balance
     const oldBalance = familyBalance.value;
