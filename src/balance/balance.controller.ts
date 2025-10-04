@@ -59,6 +59,12 @@ export class BalanceController {
   async ResetAll() {
     return await this.balanceService.resetAll();
   }
+  @Post('/update-family/:id')
+  @Roles('MASTER')
+  @HttpCode(HttpStatus.OK)
+  async updateFamilyBalance(@Param('id') id: string) {
+    return await this.balanceService.updateBalanceForFamily(id);
+  }
   @Post('/update-all')
   @Roles('MASTER')
   @HttpCode(HttpStatus.OK)
