@@ -18,6 +18,7 @@ import { TransactionsModule } from './transactions/transactions.module';
 import { ServicesModule } from './services/services.module';
 import { CronJobsModule } from './cron-jobs/cron-jobs.module';
 import { FileModule } from './file/file.module';
+import { CobrabilidadModule } from './cobrabilidad/cobrabilidad.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { FileModule } from './file/file.module';
     ServicesModule,
     CronJobsModule,
     FileModule,
+    CobrabilidadModule,
   ],
   controllers: [UserController],
   providers: [UserService, PrismaService, AuthService, JwtService],
