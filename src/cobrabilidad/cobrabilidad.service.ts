@@ -54,7 +54,7 @@ export class CobrabilidadService {
         );
         const valor = especial ? especial.valor : valorCuotaBase;
 
-        if (family.balance.value < 0) {
+        if (family.balance.value < 0 && Math.abs(family.balance.value) >= valor) {
           return Math.abs(family.balance.value) + valor;
         }
         return valor;
