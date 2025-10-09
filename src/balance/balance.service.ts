@@ -83,7 +83,7 @@ export class BalanceService {
         throw new BadRequestException('ID es requerido');
       }
       await this.getById(id, loggedUser);
-
+      console.log('Actualizando balance con data: ', data);
       return await this.prisma.balance.update({
         where: {
           id: id,
@@ -230,18 +230,18 @@ export class BalanceService {
     if (familyBalance.is_custom_cuota) {
       cuotaValue = familyBalance.custom_cuota;
     } else {
-    // 2. Contar usuarios activos
-    const usersCount = family.users.filter(
-      (u) => u.is_active && !u.is_granted,
-    ).length;
+      // 2. Contar usuarios activos
+      const usersCount = family.users.filter(
+        (u) => u.is_active && !u.is_granted,
+      ).length;
 
-    // 3. Buscar el valor de cuota según cantidad de usuarios activos
-    const CPH = await this.prisma.cuotaPorHermanos.findFirst({
-      where: { cantidad: usersCount },
-    });
+      // 3. Buscar el valor de cuota según cantidad de usuarios activos
+      const CPH = await this.prisma.cuotaPorHermanos.findFirst({
+        where: { cantidad: usersCount },
+      });
 
-    // Si no hay configuración, usar un valor por defecto (ejemplo: 0)
-     cuotaValue = CPH?.valor ?? 0;
+      // Si no hay configuración, usar un valor por defecto (ejemplo: 0)
+      cuotaValue = CPH?.valor ?? 0;
     }
 
     // 5. Actualizar el balance
@@ -249,7 +249,7 @@ export class BalanceService {
     const newBalance = oldBalance - cuotaValue;
     await this.prisma.balance.update({
       where: { id: family.balance.id },
-      data: { value: newBalance },
+      data: { value: newBalance, previousValue: oldBalance },
     });
 
     this.logger.log(
