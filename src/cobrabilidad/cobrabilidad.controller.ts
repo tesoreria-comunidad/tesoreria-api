@@ -6,6 +6,8 @@ import {
   HttpStatus,
   UseGuards,
   Request,
+  Query,
+  BadRequestException,
 } from '@nestjs/common';
 import { CobrabilidadService } from './cobrabilidad.service';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
@@ -22,22 +24,28 @@ export class CobrabilidadController {
    * @param mes Mes numérico (1-12)
    * @param anio Año completo (por ejemplo 2025)
    */
-  @Get(':mes/:anio')
+  @Get()
   @Roles('MASTER', 'DIRIGENTE')
   @HttpCode(HttpStatus.OK)
   async getCobrabilidadPorRama(
-    @Param('mes') mes: string,
-    @Param('anio') anio: string,
+    @Query() query: { month: string; year: string },
   ) {
-    const mesNum = parseInt(mes, 10);
-    const anioNum = parseInt(anio, 10);
+    try {
+      const { month, year } = query;
+      const mesNum = parseInt(month, 10);
+      const anioNum = parseInt(year, 10);
 
-    if (isNaN(mesNum) || isNaN(anioNum))
-      throw new Error('Los parámetros mes y año deben ser numéricos');
+      if (isNaN(mesNum) || isNaN(anioNum))
+        throw new BadRequestException(
+          'Los parámetros mes y año deben ser numéricos',
+        );
 
-    return await this.cobrabilidadService.calcularCobrabilidadPorRama(
-      mesNum,
-      anioNum,
-    );
+      return await this.cobrabilidadService.calcularCobrabilidadPorRama(
+        mesNum,
+        anioNum,
+      );
+    } catch (error) {
+      throw error;
+    }
   }
 }

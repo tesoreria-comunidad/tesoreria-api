@@ -1,7 +1,11 @@
-import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
 import { DateTime } from 'luxon';
-import { Balance } from '@prisma/client';
+import { Balance, Family } from '@prisma/client';
 
 @Injectable()
 export class CobrabilidadService {
@@ -29,22 +33,28 @@ export class CobrabilidadService {
               category: 'CUOTA', // ✅ solo transacciones de tipo CUOTA
               direction: 'INCOME', // ✅ solo ingresos
             },
-            include: { family: true }, 
+            include: { family: true },
           }),
         ]);
 
       const valorCuotaBase = cuotaActiva?.value ?? 0;
 
       // --- 2️⃣ Determinar monto esperado por familia ---
-      const calcularCuotaEsperada = (family): number => {
+      const calcularCuotaEsperada = async (family): Promise<number> => {
+        const balance = await this.prisma.balance.findFirst({
+          where: {
+            id: family.id_balance,
+          },
+        });
         const beneficiariosActivos = family.users.filter(
           (u) => u.is_active && !u.is_granted,
         ).length;
 
         if (beneficiariosActivos === 0) return 0;
+        if (!balance) return 0;
 
         // Si tiene cuota personalizada, se usa
-        if (family.balance?.is_custom_cuota) {
+        if (balance?.is_custom_cuota) {
           return family.balance.custom_cuota ?? 0;
         }
 
@@ -54,18 +64,21 @@ export class CobrabilidadService {
         );
         const valor = especial ? especial.valor : valorCuotaBase;
 
-        if (family.balance.value < 0 && Math.abs(family.balance.value) >= valor) {
-          return Math.abs(family.balance.value) + valor;
+        if (
+          balance?.previousValue &&
+          balance?.previousValue < 0 &&
+          Math.abs(balance.previousValue) >= valor
+        ) {
+          return Math.abs(balance.previousValue) + valor;
         }
         return valor;
-  
       };
 
       // --- 3️⃣ Total esperado por rama ---
       const totalEsperadoPorRama: Record<string, number> = {};
       for (const family of familias) {
         if (!family.manage_by) continue;
-        const monto = calcularCuotaEsperada(family);
+        const monto = await calcularCuotaEsperada(family);
         totalEsperadoPorRama[family.manage_by] =
           (totalEsperadoPorRama[family.manage_by] ?? 0) + monto;
       }
@@ -87,6 +100,7 @@ export class CobrabilidadService {
           totalEsperado > 0 ? (totalCobrado / totalEsperado) * 100 : 0;
 
         return {
+          id_rama: rama.id,
           rama: rama.name,
           totalEsperado: Number(totalEsperado.toFixed(2)),
           totalCobrado: Number(totalCobrado.toFixed(2)),
