@@ -1,6 +1,7 @@
 import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
 import { DateTime } from 'luxon';
+import { Balance } from '@prisma/client';
 
 @Injectable()
 export class CobrabilidadService {
@@ -8,9 +9,6 @@ export class CobrabilidadService {
 
   constructor(private prisma: PrismaService) {}
 
-  /**
-   * Calcula la cobrabilidad mensual por rama usando TRANSACTIONS (solo CUOTA)
-   */
   async calcularCobrabilidadPorRama(mes: number, anio: number) {
     try {
       // --- 1️⃣ Obtener datos base ---
@@ -24,14 +22,14 @@ export class CobrabilidadService {
           }),
           this.prisma.transactions.findMany({
             where: {
-              createdAt: {
+              payment_date: {
                 gte: DateTime.local(anio, mes).startOf('month').toJSDate(),
                 lte: DateTime.local(anio, mes).endOf('month').toJSDate(),
               },
               category: 'CUOTA', // ✅ solo transacciones de tipo CUOTA
               direction: 'INCOME', // ✅ solo ingresos
             },
-            include: { family: true },
+            include: { family: true }, 
           }),
         ]);
 
@@ -54,8 +52,13 @@ export class CobrabilidadService {
         const especial = cuotasPorHermanos.find(
           (c) => c.cantidad === beneficiariosActivos,
         );
+        const valor = especial ? especial.valor : valorCuotaBase;
 
-        return especial ? especial.valor : valorCuotaBase;
+        if (family.balance.value < 0) {
+          return Math.abs(family.balance.value) + valor;
+        }
+        return valor;
+  
       };
 
       // --- 3️⃣ Total esperado por rama ---

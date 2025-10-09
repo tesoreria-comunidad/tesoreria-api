@@ -83,7 +83,7 @@ export class BalanceService {
         throw new BadRequestException('ID es requerido');
       }
       await this.getById(id, loggedUser);
-
+      console.log('Actualizando balance con data: ', data);
       return await this.prisma.balance.update({
         where: {
           id: id,
