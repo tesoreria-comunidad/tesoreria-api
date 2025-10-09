@@ -94,6 +94,7 @@ model Balance {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @default(now())
   value             Float
+  previousValue     Float?
   custom_cuota      Float
   cfa_balance_value Float
   custom_cfa_value  Float
