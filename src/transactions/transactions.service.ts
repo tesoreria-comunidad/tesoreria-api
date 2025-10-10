@@ -12,15 +12,28 @@ import {
 import { RoleFilterService } from 'src/services/RoleFilter.service';
 import { log } from 'console';
 import { TransactionDirection } from './constants';
+import { Request } from 'express';
+import { AuthService } from 'src/auth/auth.service';
 
 @Injectable()
 export class TransactionsService {
   constructor(
     private prisma: PrismaService,
     private roleFilterService: RoleFilterService,
+    private authService: AuthService,
   ) {}
 
-  async create(data: CreateTransactionDTO) {
+  async create(data: CreateTransactionDTO, req: Request) {
+    const { id: userId } = await this.authService.getDataFromToken(req);
+
+    const log = await this.prisma.actionLog.create({
+      data: {
+        action_type: 'TRANSACTION_CREATE',
+        id_user: userId,
+        status: 'PENDING',
+        target_table: 'TRANSACTIONS',
+      },
+    });
     try {
       if (data.id_family) {
         const family = await this.prisma.family.findUnique({
@@ -32,17 +45,44 @@ export class TransactionsService {
           );
       }
 
-      return await this.prisma.transactions.create({
+      const newTransaccion = await this.prisma.transactions.create({
         data,
       });
+      await this.prisma.actionLog.update({
+        where: { id: log.id },
+        data: {
+          action_type: 'TRANSACTION_CREATE',
+          id_user: userId,
+          status: 'SUCCESS',
+          target_table: 'TRANSACTIONS',
+          id_transaction: newTransaccion.id,
+          target_id: newTransaccion.id,
+          metadata: {
+            transactionAmoount: newTransaccion.amount,
+          },
+        },
+      });
+      return newTransaccion;
     } catch (error) {
       console.log('Error al crear la transacción', error);
+
+      await this.prisma.actionLog.update({
+        where: { id: log.id },
+        data: {
+          action_type: 'TRANSACTION_CREATE',
+          id_user: userId,
+          status: 'ERROR',
+          target_table: 'TRANSACTIONS',
+          message: (error as Error).message ?? 'Error no especificado',
+        },
+      });
       throw new InternalServerErrorException('Error al crear la transacción');
     }
   }
 
   async createFamilyTransaction(
     data: Omit<CreateTransactionDTO, 'direction' | 'category' | 'concept'>,
+    req: Request,
   ) {
     const family = await this.prisma.family.findUnique({
       where: { id: data.id_family },
@@ -62,7 +102,7 @@ export class TransactionsService {
         concept: `Cuota familiar - ${new Date().toLocaleDateString()}`,
         description: `Cuota mensual de la familia con ID ${data.id_family}`,
       };
-      const transaction = await this.create(newTransactionPayload);
+      const transaction = await this.create(newTransactionPayload, req);
       // Actualizamos el balance de la familia
       const balance = await this.prisma.balance.findUnique({
         where: { id: family.id_balance },

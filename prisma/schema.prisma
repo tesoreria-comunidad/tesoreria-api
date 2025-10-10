@@ -143,6 +143,64 @@ model Transactions {
   family         Family?              @relation(fields: [id_family], references: [id])
 }
 
+model ActionLog {
+  id          String     @id @default(uuid()) @db.Uuid
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  action_type ActionType
+  // quién lo hizo
+  id_user     String
+
+  // objetivo de la acción (opcional, para enlazar rápido)
+  target_table   ActionTargetTable?
+  target_id      String? // ej: familyId o transactionId
+  id_family      String?
+  id_transaction String?
+
+  // resultado/estado
+  status  ActionStatus?
+  message String? // detalle humano (error msg, etc.)
+
+  // request context (útil si ejecutan vía panel)
+  requestId String? @unique
+  ip        String?
+  userAgent String?
+
+  // metadatos flexibles (parámetros usados, diff, etc.)
+  metadata Json?
+
+  @@index([action_type, createdAt(sort: Desc)])
+  @@index([target_table, target_id])
+}
+
+// enums útiles
+enum ActionType {
+  BALANCE_UPDATE
+  TRANSACTION_CREATE
+  TRANSACTION_UPDATE
+  TRANSACTION_DELETE
+  // agrega más según crezcan los casos
+}
+
+enum ActionStatus {
+  PENDING
+  SUCCESS
+  ERROR
+  // agrega más según crezcan los casos
+}
+
+enum ActionTargetTable {
+  FAMILY
+  TRANSACTIONS
+  RAMA
+  USER
+  CUOTA
+  CPH
+  BALANCE
+
+  // agrega más según crezcan los casos
+}
+
 enum TransactionCategory {
   CUOTA
   CFA

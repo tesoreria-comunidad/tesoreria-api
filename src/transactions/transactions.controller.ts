@@ -20,7 +20,7 @@ import { BulkCreateTransactionDTO } from './dto/bulk-transaction.dto';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
-
+import { Request as ExpressReques } from 'express';
 @UseGuards(AuthGuard, RolesGuard)
 @Controller('transactions')
 export class TransactionsController {
@@ -45,8 +45,11 @@ export class TransactionsController {
 
   @Post()
   @Roles('MASTER', 'DIRIGENTE')
-  async create(@Body() dto: CreateTransactionDTO) {
-    return this.transactionsService.create(dto);
+  async create(
+    @Body() dto: CreateTransactionDTO,
+    @Request() req: ExpressReques,
+  ) {
+    return this.transactionsService.create(dto, req);
   }
 
   @Post('/family-cuota')
@@ -54,12 +57,13 @@ export class TransactionsController {
   async createFamilyTransaction(
     @Body()
     dto: Omit<CreateTransactionDTO, 'direction' | 'category' | 'concept'>,
+    @Request() req: ExpressReques,
   ) {
     // This endpoint creates a transaction with direction INCOME, category CUOTA, and concept "Cuota familiar - {fecha actual}", and update the balance of the family"
     if (!dto.id_family) {
       throw new BadRequestException('id_family is required');
     }
-    return await this.transactionsService.createFamilyTransaction(dto);
+    return await this.transactionsService.createFamilyTransaction(dto, req);
   }
 
   @Patch(':id')
