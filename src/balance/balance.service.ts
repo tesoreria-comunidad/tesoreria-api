@@ -9,13 +9,16 @@ import { PrismaClient, Balance, Family } from '@prisma/client';
 import { CreateBalanceDTO, UpdateBalanceDTO } from './dto/balance.dto';
 import { RoleFilterService } from 'src/services/RoleFilter.service';
 import { PrismaService } from 'src/prisma.service';
-
+import { startOfMonth, endOfMonth } from 'date-fns';
+import { AuthService } from 'src/auth/auth.service';
+import { Request as ExpressRequest } from 'express';
 @Injectable()
 export class BalanceService {
   private readonly logger = new Logger(BalanceService.name);
   constructor(
     private prisma: PrismaService,
     private roleFilterService: RoleFilterService,
+    private authService: AuthService,
   ) {}
   public async getAllBalances(loggedUser: any) {
     try {
@@ -120,7 +123,32 @@ export class BalanceService {
       throw new InternalServerErrorException('Error al actualizar el balance');
     }
   }
-  public async updateAll() {
+  public async updateAll(req: ExpressRequest) {
+    const now = new Date();
+    const from = startOfMonth(now);
+    const to = endOfMonth(now);
+    const { id } = await this.authService.getDataFromToken(req);
+    const already = await this.prisma.actionLog.findFirst({
+      where: {
+        action_type: 'BALANCE_UPDATE',
+        createdAt: { gte: from, lte: to },
+      },
+      select: { id: true, createdAt: true, status: true },
+    });
+    if (already && already.status !== 'ERROR') {
+      throw new BadRequestException(
+        `La actualización de balances ya se ejecutó este mes (${already.createdAt.toISOString()}).`,
+      );
+    }
+
+    const log = await this.prisma.actionLog.create({
+      data: {
+        action_type: 'BALANCE_UPDATE',
+        id_user: id,
+        status: 'PENDING',
+        metadata: { notes: 'Inicio de actualización mensual' },
+      },
+    });
     try {
       const families = await this.prisma.family.findMany({
         include: {
@@ -154,9 +182,28 @@ export class BalanceService {
         }
       }
 
+      await this.prisma.actionLog.update({
+        where: { id: log.id },
+        data: {
+          status: 'SUCCESS',
+          message: 'Balances actualizados correctamente',
+          metadata: {
+            notes: 'Actualizacion mensual de balances realiazada correctamente',
+            totalFamiliesUpdated: successCount,
+            totalFamilesError: errorCount,
+          },
+        },
+      });
       return `Actualización mensual completada. Éxitos: ${successCount}, Errores: ${errorCount}`;
     } catch (error) {
       console.log('Error al actualizar el balance', error);
+      await this.prisma.actionLog.update({
+        where: { id: log.id },
+        data: {
+          status: 'ERROR',
+          message: (error as Error).message ?? 'Error no especificado',
+        },
+      });
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
