@@ -16,7 +16,7 @@ import { CreateBalanceDTO, UpdateBalanceDTO } from './dto/balance.dto';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
-
+import { Request as ExpressRequest } from 'express';
 @UseGuards(AuthGuard, RolesGuard)
 @Controller('balance')
 export class BalanceController {
@@ -68,8 +68,8 @@ export class BalanceController {
   @Post('/update-all')
   @Roles('MASTER')
   @HttpCode(HttpStatus.OK)
-  async UpdateAll() {
-    return await this.balanceService.updateAll();
+  async UpdateAll(@Request() req: ExpressRequest) {
+    return await this.balanceService.updateAll(req);
   }
 
   @Delete(':id')
