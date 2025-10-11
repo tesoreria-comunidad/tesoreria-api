@@ -111,6 +111,11 @@ export class ActionLogsService {
     });
   }
 
+  async getAll() {
+    return await this.prisma.actionLog.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+  }
   /** Listado con filtros comunes */
   async list(params: ListLogsParams = {}) {
     const where: Prisma.ActionLogWhereInput = {
