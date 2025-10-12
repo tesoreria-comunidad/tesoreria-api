@@ -141,12 +141,11 @@ export class TransactionsService {
     }
   }
 
-  async findOne(id: string, loggedUser: any) {
+  async findOne(id: string) {
     try {
       if (!id) throw new BadRequestException('ID es requerido');
-      const where = this.roleFilterService.apply(loggedUser);
       const transaction = await this.prisma.transactions.findUnique({
-        where,
+        where: { id },
       });
 
       if (!transaction)
@@ -183,18 +182,54 @@ export class TransactionsService {
       );
     }
   }
-  async update(id: string, data: UpdateTransactionDTO, loggedUser: any) {
+  async update(id: string, data: UpdateTransactionDTO, req: Request) {
+    const { id: userId } = await this.authService.getDataFromToken(req);
+
+    const log = await this.prisma.actionLog.create({
+      data: {
+        action_type: 'TRANSACTION_UPDATE',
+        id_user: userId,
+        status: 'PENDING',
+        target_table: 'TRANSACTIONS',
+      },
+    });
     try {
       if (!id) throw new BadRequestException('ID es requerido');
-      const where = this.roleFilterService.apply({ loggedUser });
       // Verificamos existencia antes de actualizar
-      await this.findOne(id, loggedUser);
-
-      return await this.prisma.transactions.update({
-        where,
+      await this.findOne(id);
+      const transactionUpdated = await this.prisma.transactions.update({
+        where: { id },
         data,
       });
+      await this.prisma.actionLog.update({
+        where: { id: log.id },
+        data: {
+          action_type: 'TRANSACTION_UPDATE',
+          id_user: userId,
+          status: 'SUCCESS',
+          target_table: 'TRANSACTIONS',
+          id_transaction: transactionUpdated.id,
+          target_id: transactionUpdated.id,
+          metadata: {
+            transactionData: {
+              ...transactionUpdated,
+            },
+          },
+        },
+      });
+
+      return transactionUpdated;
     } catch (error) {
+      await this.prisma.actionLog.update({
+        where: { id: log.id },
+        data: {
+          action_type: 'TRANSACTION_UPDATE',
+          id_user: userId,
+          status: 'ERROR',
+          target_table: 'TRANSACTIONS',
+          message: (error as Error).message ?? 'Error no especificado',
+        },
+      });
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
@@ -208,17 +243,53 @@ export class TransactionsService {
     }
   }
 
-  async remove(id: string, loggedUser: any) {
+  async remove(id: string, req: Request) {
+    const { id: userId } = await this.authService.getDataFromToken(req);
+
+    const log = await this.prisma.actionLog.create({
+      data: {
+        action_type: 'TRANSACTION_DELETE',
+        id_user: userId,
+        status: 'PENDING',
+        target_table: 'TRANSACTIONS',
+      },
+    });
     try {
       if (!id) throw new BadRequestException('ID es requerido');
-      const where = this.roleFilterService.apply(loggedUser);
       // Verificamos existencia antes de eliminar
-      await this.findOne(id, loggedUser);
+      const transaction = await this.findOne(id);
 
-      return await this.prisma.transactions.delete({
-        where,
+      await this.prisma.transactions.delete({
+        where: { id },
       });
+
+      await this.prisma.actionLog.update({
+        where: { id: log.id },
+        data: {
+          action_type: 'TRANSACTION_DELETE',
+          id_user: userId,
+          status: 'SUCCESS',
+          target_table: 'TRANSACTIONS',
+          metadata: {
+            transactionDeleted: {
+              ...transaction,
+            },
+          },
+        },
+      });
+
+      return 'transaccion elimnada!';
     } catch (error) {
+      await this.prisma.actionLog.update({
+        where: { id: log.id },
+        data: {
+          action_type: 'TRANSACTION_DELETE',
+          id_user: userId,
+          status: 'ERROR',
+          target_table: 'TRANSACTIONS',
+          message: (error as Error).message ?? 'Error no especificado',
+        },
+      });
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
@@ -311,6 +382,27 @@ export class TransactionsService {
     } catch (error) {
       console.log('Error al generar estadísticas', error);
       throw new InternalServerErrorException('Error al generar estadísticas');
+    }
+  }
+
+  public async getCategroies() {
+    try {
+      // Traemos todas las categorías sin usar distinct en la query
+      const transactions = await this.prisma.transactions.findMany({
+        select: { category: true },
+      });
+      // Creamos un Map para almacenar la primera aparición de cada categoría en minúsculas
+      const uniqueMap = new Map<string, string>();
+      transactions.forEach((tx) => {
+        const key = tx.category.toLowerCase();
+        if (!uniqueMap.has(key)) {
+          uniqueMap.set(key, tx.category);
+        }
+      });
+      return Array.from(uniqueMap.values());
+    } catch (error) {
+      console.log('Error al obtener las categorías', error);
+      throw new InternalServerErrorException('Error al obtener las categorías');
     }
   }
 }
