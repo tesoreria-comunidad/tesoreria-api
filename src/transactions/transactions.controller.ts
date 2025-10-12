@@ -20,7 +20,7 @@ import { BulkCreateTransactionDTO } from './dto/bulk-transaction.dto';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
-import { Request as ExpressReques } from 'express';
+import { Request as ExpressRequest } from 'express';
 @UseGuards(AuthGuard, RolesGuard)
 @Controller('transactions')
 export class TransactionsController {
@@ -32,10 +32,16 @@ export class TransactionsController {
     return this.transactionsService.findAll(req.user);
   }
 
+  @Get('/categroy-list')
+  @Roles('MASTER', 'DIRIGENTE', 'FAMILY', 'BENEFICIARIO')
+  async getCategroyList() {
+    return await this.transactionsService.getCategroies();
+  }
+
   @Get(':id')
   @Roles('MASTER', 'DIRIGENTE')
-  async findOne(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
-    return this.transactionsService.findOne(id, req.user);
+  async findOne(@Param('id', ParseUUIDPipe) id: string) {
+    return this.transactionsService.findOne(id);
   }
   @Get('/by-family/:id')
   @Roles('MASTER', 'DIRIGENTE', 'FAMILY', 'BENEFICIARIO')
@@ -47,7 +53,7 @@ export class TransactionsController {
   @Roles('MASTER', 'DIRIGENTE')
   async create(
     @Body() dto: CreateTransactionDTO,
-    @Request() req: ExpressReques,
+    @Request() req: ExpressRequest,
   ) {
     return this.transactionsService.create(dto, req);
   }
@@ -57,7 +63,7 @@ export class TransactionsController {
   async createFamilyTransaction(
     @Body()
     dto: Omit<CreateTransactionDTO, 'direction' | 'category' | 'concept'>,
-    @Request() req: ExpressReques,
+    @Request() req: ExpressRequest,
   ) {
     // This endpoint creates a transaction with direction INCOME, category CUOTA, and concept "Cuota familiar - {fecha actual}", and update the balance of the family"
     if (!dto.id_family) {
@@ -69,17 +75,20 @@ export class TransactionsController {
   @Patch(':id')
   @Roles('MASTER', 'DIRIGENTE')
   async update(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Body() dto: UpdateTransactionDTO,
-    @Request() req: any,
+    @Request() req: ExpressRequest,
   ) {
-    return this.transactionsService.update(id, dto, req.user);
+    return this.transactionsService.update(id, dto, req);
   }
 
   @Delete(':id')
   @Roles('MASTER')
-  async remove(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
-    return this.transactionsService.remove(id, req.user);
+  async remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req: ExpressRequest,
+  ) {
+    return this.transactionsService.remove(id, req);
   }
 
   @Post('bulk')
