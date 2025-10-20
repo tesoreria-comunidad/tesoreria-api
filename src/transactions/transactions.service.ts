@@ -409,40 +409,102 @@ export class TransactionsService {
   async bulkCommunityTransactions(transactions: CreateTransactionDTO[], req: Request) {
   const { id: userId } = await this.authService.getDataFromToken(req);
 
-  // Filtrar transacciones que NO sean CUOTA
-  const filtered = transactions.filter(
-    (tx) => tx.category?.toUpperCase() !== 'CUOTA',
-  );
+  const valid: CreateTransactionDTO[] = [];
+  const ignoredByCategory: any[] = [];
+  const rejectedByFamily: any[] = [];
 
-  if (filtered.length === 0) {
-    throw new BadRequestException('Todas las transacciones eran de tipo CUOTA');
+  for (let i = 0; i < transactions.length; i++) {
+    const tx = transactions[i];
+
+    if (tx.category?.toUpperCase() === 'CUOTA') {
+      ignoredByCategory.push({
+        index: i,
+        reason: 'Categoría CUOTA no permitida',
+        concept: tx.concept,
+        amount: tx.amount,
+        id_family: tx.id_family,
+      });
+      continue;
+    }
+
+    if (!tx.id_family) {
+      rejectedByFamily.push({
+        index: i,
+        reason: 'id_family faltante',
+        concept: tx.concept,
+        amount: tx.amount,
+      });
+      continue;
+    }
+
+    const familyExists = await this.prisma.family.findUnique({
+      where: { id: tx.id_family },
+    });
+
+    if (!familyExists) {
+      rejectedByFamily.push({
+        index: i,
+        reason: 'id_family no existe',
+        concept: tx.concept,
+        amount: tx.amount,
+        id_family: tx.id_family,
+      });
+      continue;
+    }
+
+    valid.push(tx);
   }
 
-  // Registrar log de acción
-  await this.prisma.actionLog.create({
-    data: {
-      action_type: 'TRANSACTION_CREATE',
-      id_user: userId,
-      status: 'PENDING',
-      target_table: 'TRANSACTIONS',
-      message: `Carga masiva comunitaria (${filtered.length} transacciones)`,
-    },
-  });
+  // 🚨 Si hay errores REALES (no relacionados a CUOTA), lanzamos error
+  if (rejectedByFamily.length > 0) {
+    throw new BadRequestException({
+      message: 'Carga rechazada por transacciones inválidas',
+      rejectedByFamily,
+      ignoredByCategory: ignoredByCategory.length,
+      validCount: valid.length,
+    });
+  }
 
-  // Crear transacciones
+  // 🧼 Si no hay válidas, también lanzamos error
+  if (valid.length === 0) {
+    throw new BadRequestException({
+      message: 'No se pudo crear ninguna transacción. Todas fueron ignoradas por categoría CUOTA',
+      ignoredByCategory,
+    });
+  }
+
+  // ✅ Crear transacciones válidas
   const result = await this.prisma.transactions.createMany({
-    data: filtered.map((tx) => ({
+    data: valid.map((tx) => ({
       ...tx,
       payment_date: tx.payment_date ? new Date(tx.payment_date) : new Date(),
     })),
     skipDuplicates: true,
   });
 
+  await this.prisma.actionLog.create({
+    data: {
+      action_type: 'TRANSACTION_CREATE',
+      id_user: userId,
+      status: 'SUCCESS',
+      target_table: 'TRANSACTIONS',
+      message: `Carga masiva comunitaria (${result.count} creadas, ${ignoredByCategory.length} ignoradas por CUOTA)`,
+      metadata: {
+        createdCount: result.count,
+        ignoredByCategory,
+      },
+    },
+  });
+
   return {
-    message: `${result.count} transacciones comunitarias creadas exitosamente`,
-    count: result.count,
+    message: 'Carga masiva completada exitosamente',
+    created: result.count,
+    ignoredByCategory: ignoredByCategory.length,
   };
 }
+
+
+
 
 
   
