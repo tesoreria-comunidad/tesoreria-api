@@ -405,4 +405,47 @@ export class TransactionsService {
       throw new InternalServerErrorException('Error al obtener las categorías');
     }
   }
+
+  async bulkCommunityTransactions(transactions: CreateTransactionDTO[], req: Request) {
+  const { id: userId } = await this.authService.getDataFromToken(req);
+
+  // Filtrar transacciones que NO sean CUOTA
+  const filtered = transactions.filter(
+    (tx) => tx.category?.toUpperCase() !== 'CUOTA',
+  );
+
+  if (filtered.length === 0) {
+    throw new BadRequestException('Todas las transacciones eran de tipo CUOTA');
+  }
+
+  // Registrar log de acción
+  await this.prisma.actionLog.create({
+    data: {
+      action_type: 'TRANSACTION_CREATE',
+      id_user: userId,
+      status: 'PENDING',
+      target_table: 'TRANSACTIONS',
+      message: `Carga masiva comunitaria (${filtered.length} transacciones)`,
+    },
+  });
+
+  // Crear transacciones
+  const result = await this.prisma.transactions.createMany({
+    data: filtered.map((tx) => ({
+      ...tx,
+      payment_date: tx.payment_date ? new Date(tx.payment_date) : new Date(),
+    })),
+    skipDuplicates: true,
+  });
+
+  return {
+    message: `${result.count} transacciones comunitarias creadas exitosamente`,
+    count: result.count,
+  };
 }
+
+
+  
+}
+
+
