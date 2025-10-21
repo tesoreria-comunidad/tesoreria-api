@@ -411,7 +411,6 @@ export class TransactionsService {
 
   const valid: CreateTransactionDTO[] = [];
   const ignoredByCategory: any[] = [];
-  const rejectedByFamily: any[] = [];
 
   for (let i = 0; i < transactions.length; i++) {
     const tx = transactions[i];
@@ -427,45 +426,9 @@ export class TransactionsService {
       continue;
     }
 
-    if (!tx.id_family) {
-      rejectedByFamily.push({
-        index: i,
-        reason: 'id_family faltante',
-        concept: tx.concept,
-        amount: tx.amount,
-      });
-      continue;
-    }
-
-    const familyExists = await this.prisma.family.findUnique({
-      where: { id: tx.id_family },
-    });
-
-    if (!familyExists) {
-      rejectedByFamily.push({
-        index: i,
-        reason: 'id_family no existe',
-        concept: tx.concept,
-        amount: tx.amount,
-        id_family: tx.id_family,
-      });
-      continue;
-    }
-
     valid.push(tx);
   }
 
-  // 🚨 Si hay errores REALES (no relacionados a CUOTA), lanzamos error
-  if (rejectedByFamily.length > 0) {
-    throw new BadRequestException({
-      message: 'Carga rechazada por transacciones inválidas',
-      rejectedByFamily,
-      ignoredByCategory: ignoredByCategory.length,
-      validCount: valid.length,
-    });
-  }
-
-  // 🧼 Si no hay válidas, también lanzamos error
   if (valid.length === 0) {
     throw new BadRequestException({
       message: 'No se pudo crear ninguna transacción. Todas fueron ignoradas por categoría CUOTA',
@@ -473,35 +436,52 @@ export class TransactionsService {
     });
   }
 
-  // ✅ Crear transacciones válidas
-  const result = await this.prisma.transactions.createMany({
-    data: valid.map((tx) => ({
-      ...tx,
-      payment_date: tx.payment_date ? new Date(tx.payment_date) : new Date(),
-    })),
-    skipDuplicates: true,
-  });
+  try {
+    const result = await this.prisma.transactions.createMany({
+      data: valid.map((tx) => ({
+        ...tx,
+        payment_date: tx.payment_date ?? new Date().toISOString(),
+      })),
+      skipDuplicates: true,
+    });
 
-  await this.prisma.actionLog.create({
-    data: {
-      action_type: 'TRANSACTION_CREATE',
-      id_user: userId,
-      status: 'SUCCESS',
-      target_table: 'TRANSACTIONS',
-      message: `Carga masiva comunitaria (${result.count} creadas, ${ignoredByCategory.length} ignoradas por CUOTA)`,
-      metadata: {
-        createdCount: result.count,
-        ignoredByCategory,
+    await this.prisma.actionLog.create({
+      data: {
+        action_type: 'TRANSACTION_CREATE',
+        id_user: userId,
+        status: 'SUCCESS',
+        target_table: 'TRANSACTIONS',
+        message: `Carga masiva comunitaria (${result.count} creadas, ${ignoredByCategory.length} ignoradas por CUOTA)`,
+        metadata: {
+          createdCount: result.count,
+          ignoredByCategory,
+        },
       },
-    },
-  });
+    });
 
-  return {
-    message: 'Carga masiva completada exitosamente',
-    created: result.count,
-    ignoredByCategory: ignoredByCategory.length,
-  };
+    return {
+      message: 'Carga masiva completada exitosamente',
+      created: result.count,
+      ignoredByCategory: ignoredByCategory.length,
+    };
+  } catch (error) {
+    await this.prisma.actionLog.create({
+      data: {
+        action_type: 'TRANSACTION_CREATE',
+        id_user: userId,
+        status: 'ERROR',
+        target_table: 'TRANSACTIONS',
+        message: (error as Error).message ?? 'Error no especificado',
+        metadata: {
+          ignoredByCategory,
+        },
+      },
+    });
+
+    throw new InternalServerErrorException('No se pudieron crear las transacciones');
+  }
 }
+
 
 
 
