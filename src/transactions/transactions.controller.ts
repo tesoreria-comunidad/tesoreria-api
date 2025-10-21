@@ -10,6 +10,7 @@ import {
   UseGuards,
   Request,
   BadRequestException,
+  UploadedFile,
 } from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
 import {
@@ -32,10 +33,10 @@ export class TransactionsController {
     return this.transactionsService.findAll(req.user);
   }
 
-  @Get('/categroy-list')
+  @Get('/category-list')
   @Roles('MASTER', 'DIRIGENTE', 'FAMILY', 'BENEFICIARIO')
-  async getCategroyList() {
-    return await this.transactionsService.getCategroies();
+  async getCategoryList() {
+    return await this.transactionsService.getCategories();
   }
 
   @Get(':id')

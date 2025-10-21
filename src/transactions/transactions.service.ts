@@ -385,7 +385,7 @@ export class TransactionsService {
     }
   }
 
-  public async getCategroies() {
+  public async getCategories() {
     try {
       // Traemos todas las categorías sin usar distinct en la query
       const transactions = await this.prisma.transactions.findMany({
