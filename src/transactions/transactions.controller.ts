@@ -10,6 +10,7 @@ import {
   UseGuards,
   Request,
   BadRequestException,
+  UploadedFile,
 } from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
 import {
@@ -32,10 +33,10 @@ export class TransactionsController {
     return this.transactionsService.findAll(req.user);
   }
 
-  @Get('/categroy-list')
+  @Get('/category-list')
   @Roles('MASTER', 'DIRIGENTE', 'FAMILY', 'BENEFICIARIO')
-  async getCategroyList() {
-    return await this.transactionsService.getCategroies();
+  async getCategoryList() {
+    return await this.transactionsService.getCategories();
   }
 
   @Get(':id')
@@ -99,4 +100,16 @@ export class TransactionsController {
   async getMonthlyStats(@Request() req: any) {
     return this.transactionsService.getMonthlyStats(req.user);
   }
+
+  @Post('bulk-community')
+  @Roles('MASTER', 'DIRIGENTE')
+  @UseGuards(AuthGuard, RolesGuard)
+  async bulkCommunityTransactions(
+    @Body() body: BulkCreateTransactionDTO,
+    @Request() req: ExpressRequest,
+  ) {
+    return this.transactionsService.bulkCommunityTransactions(body.transactions, req);
+  }
+
+  
 }

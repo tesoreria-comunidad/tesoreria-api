@@ -41,6 +41,10 @@ export class CreateTransactionDTO {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @IsString()
+  @IsOptional()
+  attachment?: string;
 }
 
 export class UpdateTransactionDTO {
