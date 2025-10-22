@@ -6,6 +6,7 @@ import {
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v4 as uuid } from 'uuid';
+
 @Injectable()
 export class FileService {
   private s3: S3Client;
@@ -22,23 +23,20 @@ export class FileService {
     this.bucketName = this.configService.get('AWS_BUCKET_NAME')!;
   }
 
-  async upload(file: Express.Multer.File, token: string, family_id: string) {
+  async upload(file: Express.Multer.File) {
     try {
       const fileKey = `${Date.now()}-${uuid()}-${file.originalname}`;
       const res = await this.s3.send(
         new PutObjectCommand({
           Bucket: this.bucketName,
+          ContentType: file.mimetype,
           Key: fileKey,
-          Body: file.buffer,
-          Metadata: {
-            family_id, // <-- FAMILIA VILLANUEVA HARCODED
-            token: token, // <-- valor dinámico si querés
-          },
+          Body: file.buffer
         }),
       );
 
       return {
-        ...res,
+      //  ...res,
         fileKey,
       };
       }
@@ -50,7 +48,7 @@ export class FileService {
 
   async delete(fileName: string) {
     try {
-      const bucketName = 'reservepro-media';
+      const bucketName = this.bucketName;
       await this.s3.send(
         new DeleteObjectCommand({
           Bucket: bucketName,

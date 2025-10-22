@@ -141,6 +141,7 @@ model Transactions {
   direction      TransactionDirection
   payment_method PaymentMethod
   family         Family?              @relation(fields: [id_family], references: [id])
+  attachment    String?
 }
 
 model ActionLog {
