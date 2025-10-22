@@ -99,4 +99,16 @@ export class TransactionsController {
   async getMonthlyStats(@Request() req: any) {
     return this.transactionsService.getMonthlyStats(req.user);
   }
+
+  @Post('bulk-community')
+  @Roles('MASTER', 'DIRIGENTE')
+  @UseGuards(AuthGuard, RolesGuard)
+  async bulkCommunityTransactions(
+    @Body() body: BulkCreateTransactionDTO,
+    @Request() req: ExpressRequest,
+  ) {
+    return this.transactionsService.bulkCommunityTransactions(body.transactions, req);
+  }
+
+  
 }

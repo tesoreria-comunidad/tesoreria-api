@@ -405,4 +405,89 @@ export class TransactionsService {
       throw new InternalServerErrorException('Error al obtener las categorías');
     }
   }
+
+  async bulkCommunityTransactions(transactions: CreateTransactionDTO[], req: Request) {
+  const { id: userId } = await this.authService.getDataFromToken(req);
+
+  const valid: CreateTransactionDTO[] = [];
+  const ignoredByCategory: any[] = [];
+
+  for (let i = 0; i < transactions.length; i++) {
+    const tx = transactions[i];
+
+    if (tx.category?.toUpperCase() === 'CUOTA') {
+      ignoredByCategory.push({
+        index: i,
+        reason: 'Categoría CUOTA no permitida',
+        concept: tx.concept,
+        amount: tx.amount,
+        id_family: tx.id_family,
+      });
+      continue;
+    }
+
+    valid.push(tx);
+  }
+
+  if (valid.length === 0) {
+    throw new BadRequestException({
+      message: 'No se pudo crear ninguna transacción. Todas fueron ignoradas por categoría CUOTA',
+      ignoredByCategory,
+    });
+  }
+
+  try {
+    const result = await this.prisma.transactions.createMany({
+      data: valid.map((tx) => ({
+        ...tx,
+        payment_date: tx.payment_date ?? new Date().toISOString(),
+      })),
+      skipDuplicates: true,
+    });
+
+    await this.prisma.actionLog.create({
+      data: {
+        action_type: 'TRANSACTION_CREATE',
+        id_user: userId,
+        status: 'SUCCESS',
+        target_table: 'TRANSACTIONS',
+        message: `Carga masiva comunitaria (${result.count} creadas, ${ignoredByCategory.length} ignoradas por CUOTA)`,
+        metadata: {
+          createdCount: result.count,
+          ignoredByCategory,
+        },
+      },
+    });
+
+    return {
+      message: 'Carga masiva completada exitosamente',
+      created: result.count,
+      ignoredByCategory: ignoredByCategory.length,
+    };
+  } catch (error) {
+    await this.prisma.actionLog.create({
+      data: {
+        action_type: 'TRANSACTION_CREATE',
+        id_user: userId,
+        status: 'ERROR',
+        target_table: 'TRANSACTIONS',
+        message: (error as Error).message ?? 'Error no especificado',
+        metadata: {
+          ignoredByCategory,
+        },
+      },
+    });
+
+    throw new InternalServerErrorException('No se pudieron crear las transacciones');
+  }
 }
+
+
+
+
+
+
+  
+}
+
+
