@@ -11,6 +11,8 @@ import { RoleFilterService } from 'src/services/RoleFilter.service';
 import { PrismaService } from 'src/prisma.service';
 import { startOfMonth, endOfMonth } from 'date-fns';
 import { AuthService } from 'src/auth/auth.service';
+import { ActionLogsService } from 'src/action-logs/action-logs.service';
+import { ActionType } from '@prisma/client';
 import { Request as ExpressRequest } from 'express';
 @Injectable()
 export class BalanceService {
@@ -19,8 +21,9 @@ export class BalanceService {
     private prisma: PrismaService,
     private roleFilterService: RoleFilterService,
     private authService: AuthService,
+    private actionLogsService: ActionLogsService,
   ) {}
-  public async getAllBalances(loggedUser: any) {
+  public async getAllBalances(loggedUser: any, actorId?: string) {
     try {
       const where = this.roleFilterService.apply(loggedUser);
       return await this.prisma.balance.findMany({
@@ -35,7 +38,7 @@ export class BalanceService {
     }
   }
 
-  public async getById(id: string, loggedUser: any) {
+  public async getById(id: string, loggedUser: any, actorId?: string) {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
@@ -66,7 +69,7 @@ export class BalanceService {
     }
   }
 
-  public async create(data: CreateBalanceDTO) {
+  public async create(data: CreateBalanceDTO, actorId?: string) {
     try {
       return await this.prisma.balance.create({
         data,
@@ -80,7 +83,7 @@ export class BalanceService {
     }
   }
 
-  public async update(id: string, data: UpdateBalanceDTO, loggedUser: any) {
+  public async update(id: string, data: UpdateBalanceDTO, loggedUser: any, actorId?: string) {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
@@ -141,14 +144,11 @@ export class BalanceService {
       );
     }
 
-    const log = await this.prisma.actionLog.create({
-      data: {
-        action_type: 'BALANCE_UPDATE',
-        id_user: id,
-        status: 'PENDING',
-        metadata: { notes: 'Inicio de actualización mensual' },
-      },
-    });
+    const log = await this.actionLogsService.start(
+      ActionType.BALANCE_UPDATE,
+      id,
+      { metadata: { notes: 'Inicio de actualización mensual' } },
+    );
     try {
       const families = await this.prisma.family.findMany({
         include: {
@@ -182,28 +182,15 @@ export class BalanceService {
         }
       }
 
-      await this.prisma.actionLog.update({
-        where: { id: log.id },
-        data: {
-          status: 'SUCCESS',
-          message: 'Balances actualizados correctamente',
-          metadata: {
-            notes: 'Actualizacion mensual de balances realiazada correctamente',
-            totalFamiliesUpdated: successCount,
-            totalFamilesError: errorCount,
-          },
-        },
+      await this.actionLogsService.markSuccess(log.id, 'Balances actualizados correctamente', {
+        notes: 'Actualizacion mensual de balances realiazada correctamente',
+        totalFamiliesUpdated: successCount,
+        totalFamilesError: errorCount,
       });
       return `Actualización mensual completada. Éxitos: ${successCount}, Errores: ${errorCount}`;
     } catch (error) {
       console.log('Error al actualizar el balance', error);
-      await this.prisma.actionLog.update({
-        where: { id: log.id },
-        data: {
-          status: 'ERROR',
-          message: (error as Error).message ?? 'Error no especificado',
-        },
-      });
+      await this.actionLogsService.markError(log.id, error as Error);
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
@@ -214,7 +201,7 @@ export class BalanceService {
     }
   }
 
-  public async delete(id: string, loggedUser: any) {
+  public async delete(id: string, loggedUser: any, actorId?: string) {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');

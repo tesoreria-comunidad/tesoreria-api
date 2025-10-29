@@ -6,5 +6,6 @@ import { PrismaService } from 'src/prisma.service';
 @Module({
   controllers: [ActionLogsController],
   providers: [ActionLogsService, PrismaService],
+  exports: [ActionLogsService],
 })
 export class ActionLogsModule {}

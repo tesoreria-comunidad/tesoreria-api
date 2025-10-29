@@ -29,7 +29,7 @@ export class RamaService {
     }
   }
 
-  public async getById(id: string, loggedUser: any) {
+  public async getById(id: string, loggedUser: any, actorId?: string) {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
@@ -96,7 +96,7 @@ export class RamaService {
     }
   }
 
-  public async update(id: string, data: UpdateRamaDTO, loggedUser: any) {
+  public async update(id: string, data: UpdateRamaDTO, loggedUser: any, actorId?: string) {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
@@ -147,7 +147,7 @@ export class RamaService {
     }
   }
 
-  public async delete(id: string, loggedUser: any) {
+  public async delete(id: string, loggedUser: any, actorId?: string) {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');

@@ -15,7 +15,7 @@ export class CuotaService {
     private prisma: PrismaService,
     private roleFilterService: RoleFilterService,
   ) {}
-  public async getAllCuota(loggedUser: any) {
+  public async getAllCuota(loggedUser: any, actorId?: string) {
     try {
       const where = this.roleFilterService.apply(loggedUser);
       return await this.prisma.cuota.findMany({ where });
@@ -25,7 +25,7 @@ export class CuotaService {
     }
   }
 
-  public async getById(id: string, loggedUser: any) {
+  public async getById(id: string, loggedUser: any, actorId?: string) {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
@@ -52,7 +52,7 @@ export class CuotaService {
     }
   }
 
-  public async create(data: CreateCuotaDTO) {
+  public async create(data: CreateCuotaDTO, actorId?: string) {
     try {
       if (data.value < 0) {
         throw new BadRequestException('Los montos no pueden ser negativos');
@@ -78,7 +78,7 @@ export class CuotaService {
     }
   }
 
-  public async update(id: string, data: UpdateCuotaDTO, loggedUser: any) {
+  public async update(id: string, data: UpdateCuotaDTO, loggedUser: any, actorId?: string) {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
@@ -113,7 +113,7 @@ export class CuotaService {
     }
   }
 
-  public async delete(id: string, loggedUser: any) {
+  public async delete(id: string, loggedUser: any, actorId?: string) {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');

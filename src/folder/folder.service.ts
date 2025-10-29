@@ -15,7 +15,7 @@ export class FolderService {
     private prisma: PrismaService,
     private roleFilterService: RoleFilterService,
   ) {}
-  public async getAllFolder(loggedUser: any) {
+  public async getAllFolder(loggedUser: any, actorId?: string) {
     try {
       const where = this.roleFilterService.apply(loggedUser);
       return await this.prisma.folder.findMany({
@@ -30,7 +30,7 @@ export class FolderService {
     }
   }
 
-  public async getById(id: string, loggedUser: any) {
+  public async getById(id: string, loggedUser: any, actorId?: string) {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
@@ -60,7 +60,7 @@ export class FolderService {
     }
   }
 
-  public async create(data: CreateFolderDTO) {
+  public async create(data: CreateFolderDTO, actorId?: string) {
     try {
       return await this.prisma.folder.create({
         data,
@@ -74,7 +74,7 @@ export class FolderService {
     }
   }
 
-  public async update(id: string, data: UpdateFolderDTO, loggedUser: any) {
+  public async update(id: string, data: UpdateFolderDTO, loggedUser: any, actorId?: string) {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
@@ -102,7 +102,7 @@ export class FolderService {
     }
   }
 
-  public async delete(id: string, loggedUser: any) {
+  public async delete(id: string, loggedUser: any, actorId?: string) {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');

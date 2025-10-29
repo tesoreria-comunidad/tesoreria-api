@@ -8,21 +8,40 @@ import { PrismaService } from 'src/prisma.service';
 import { CreatePaymentDto, UpdatePaymentDto } from './dto/payments.dto';
 import { RoleFilterService } from 'src/services/RoleFilter.service';
 import { log } from 'console';
+import { ActionLogsService } from 'src/action-logs/action-logs.service';
+import { ActionType, ActionTargetTable } from '@prisma/client';
 
 @Injectable()
 export class PaymentsService {
-    constructor(private prisma: PrismaService, private roleFilterService: RoleFilterService) { }
+    constructor(
+        private prisma: PrismaService,
+        private roleFilterService: RoleFilterService,
+        private actionLogsService: ActionLogsService,
+    ) { }
 
-    async create(data: CreatePaymentDto) {
+    async create(data: CreatePaymentDto, loggedUser?: any, actorId?: string) {
+        const userId = (actorId as string) ?? (loggedUser?.id as string);
+        const log = await this.actionLogsService.start(
+            ActionType.PAYMENT_CREATE,
+            userId,
+            { target_table: ActionTargetTable.TRANSACTIONS },
+        );
+
         try {
-            return await this.prisma.payment.create({ data });
+            const created = await this.prisma.payment.create({ data });
+            await this.actionLogsService.markSuccess(log.id, undefined, {
+                target_id: created.id,
+                payment: { id: created.id, amount: created.amount, id_family: created.id_family },
+            });
+            return created;
         } catch (error) {
             console.log('Error al crear el pago', error);
+            await this.actionLogsService.markError(log.id, error as Error);
             throw new InternalServerErrorException('Error al crear el pago');
         }
     }
 
-    async findAll(loggedUser) {
+    async findAll(loggedUser, actorId?: string) {
         try {
             const where  =this.roleFilterService.apply(loggedUser);
             return await this.prisma.payment.findMany();
@@ -32,7 +51,7 @@ export class PaymentsService {
         }
     }
 
-    async findOne(id: string, loggedUser: any) {
+    async findOne(id: string, loggedUser: any, actorId?: string) {
         try {
             if (!id) throw new BadRequestException('ID es requerido');
             const where = this.roleFilterService.apply(loggedUser);
@@ -50,18 +69,31 @@ export class PaymentsService {
         }
     }
 
-    async update(id: string, data: UpdatePaymentDto, loggedUser: any) {
+    async update(id: string, data: UpdatePaymentDto, loggedUser: any, actorId?: string) {
+        const userId = (actorId as string) ?? (loggedUser?.id as string);
+        const log = await this.actionLogsService.start(
+            ActionType.PAYMENT_UPDATE,
+            userId,
+            { target_table: ActionTargetTable.TRANSACTIONS, target_id: id },
+        );
+
         try {
             if (!id) throw new BadRequestException('ID es requerido');
             const where = this.roleFilterService.apply(loggedUser);
             // Verificamos que exista
             await this.findOne(id, loggedUser);
 
-            return await this.prisma.payment.update({
-                where,
-                data,
+            const updated = await this.prisma.payment.update({ where, data });
+
+            await this.actionLogsService.markSuccess(log.id, undefined, {
+                target_id: updated.id,
+                payment: { id: updated.id, amount: updated.amount, id_family: updated.id_family },
             });
+
+            return updated;
         } catch (error) {
+            await this.actionLogsService.markError(log.id, error as Error);
+
             if (error instanceof NotFoundException || error instanceof BadRequestException) {
                 throw error;
             }
@@ -70,15 +102,31 @@ export class PaymentsService {
         }
     }
 
-    async remove(id: string, loggedUser: any) {
+    async remove(id: string, loggedUser: any, actorId?: string) {
+        const userId = (actorId as string) ?? (loggedUser?.id as string);
+        const log = await this.actionLogsService.start(
+            ActionType.PAYMENT_DELETE,
+            userId,
+            { target_table: ActionTargetTable.TRANSACTIONS, target_id: id },
+        );
+
         try {
             if (!id) throw new BadRequestException('ID es requerido');
             const where = this.roleFilterService.apply(loggedUser)
             // Verificamos que exista
-            await this.findOne(id, loggedUser);
+            const existing = await this.findOne(id, loggedUser);
 
-            return await this.prisma.payment.delete({ where });
+            const deleted = await this.prisma.payment.delete({ where });
+
+            await this.actionLogsService.markSuccess(log.id, undefined, {
+                deleted: { id: deleted.id, amount: deleted.amount },
+                existing: { id: existing.id, amount: existing.amount },
+            });
+
+            return deleted;
         } catch (error) {
+            await this.actionLogsService.markError(log.id, error as Error);
+
             if (error instanceof NotFoundException || error instanceof BadRequestException) {
                 throw error;
             }
