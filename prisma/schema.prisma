@@ -70,8 +70,8 @@ model Family {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   name         String
-  manage_by    String
   phone        String?
+  manage_by    String
   balance      Balance        @relation(fields: [id_balance], references: [id])
   payments     Payment[]
   transactions Transactions[]
@@ -94,12 +94,12 @@ model Balance {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @default(now())
   value             Float
-  previousValue     Float?
   custom_cuota      Float
   cfa_balance_value Float
   custom_cfa_value  Float
   is_custom_cuota   Boolean
   is_custom_cfa     Boolean
+  previousValue     Float?
   family            Family?
 }
 
@@ -140,41 +140,31 @@ model Transactions {
   category       String
   direction      TransactionDirection
   payment_method PaymentMethod
+  attachment     String?
   family         Family?              @relation(fields: [id_family], references: [id])
-  attachment    String?
 }
 
 model ActionLog {
-  id          String     @id @default(uuid()) @db.Uuid
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  action_type ActionType
-  // quién lo hizo
-  id_user     String
-
-  // objetivo de la acción (opcional, para enlazar rápido)
-  target_table   ActionTargetTable?
-  target_id      String? // ej: familyId o transactionId
+  id             String             @id @default(uuid()) @db.Uuid
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  action_type    ActionType
+  id_user        String
+  target_id      String?
   id_family      String?
   id_transaction String?
-
-  // resultado/estado
-  status  ActionStatus?
-  message String? // detalle humano (error msg, etc.)
-
-  // request context (útil si ejecutan vía panel)
-  requestId String? @unique
-  ip        String?
-  userAgent String?
-
-  // metadatos flexibles (parámetros usados, diff, etc.)
-  metadata Json?
+  status         ActionStatus?
+  message        String?
+  requestId      String?            @unique
+  ip             String?
+  userAgent      String?
+  metadata       Json?
+  target_table   ActionTargetTable?
 
   @@index([action_type, createdAt(sort: Desc)])
   @@index([target_table, target_id])
 }
 
-// enums útiles
 enum ActionType {
   BALANCE_UPDATE
   TRANSACTION_CREATE
@@ -198,14 +188,12 @@ enum ActionType {
   FOLDER_CREATE
   FOLDER_UPDATE
   FOLDER_DELETE
-  // agrega más según crezcan los casos
 }
 
 enum ActionStatus {
   PENDING
   SUCCESS
   ERROR
-  // agrega más según crezcan los casos
 }
 
 enum ActionTargetTable {
@@ -216,8 +204,6 @@ enum ActionTargetTable {
   CUOTA
   CPH
   BALANCE
-
-  // agrega más según crezcan los casos
 }
 
 enum TransactionCategory {

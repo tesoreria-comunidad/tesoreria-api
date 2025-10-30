@@ -8,6 +8,7 @@ import {
   IsDate,
 } from 'class-validator';
 import { Role, Gender, familyRole } from '@prisma/client';
+import { Transform } from 'class-transformer';
 
 export class CreateUserDTO {
   @IsString({ message: 'El nombre de usuario debe ser una cadena de texto' })
@@ -181,6 +182,7 @@ export class UpdateUserDTO {
 
   @IsEmail({}, { message: 'Debe proporcionar un email válido' })
   @IsOptional()
+  @Transform(({ value }) => (value === null || value === '' ? undefined : value)) 
   email?: string;
 
   @IsEnum(Gender, { message: 'El género debe ser válido' })
