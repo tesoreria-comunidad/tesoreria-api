@@ -32,7 +32,7 @@ export class RamaController {
   @Roles('MASTER', 'DIRIGENTE', 'BENEFICIARIO')
   @HttpCode(HttpStatus.OK)
   async getRamaById(@Param('id') id: string, @Request() req: any) {
-    return await this.ramaService.getById(id, req.user);
+  return await this.ramaService.getById(id, req.user, req.user?.id);
   }
 
   @Post()
@@ -50,14 +50,14 @@ export class RamaController {
     @Body() body: UpdateRamaDTO,
     @Request() req: any,
   ) {
-    return await this.ramaService.update(id, body, req.user);
+  return await this.ramaService.update(id, body, req.user, req.user?.id);
   }
 
   @Delete(':id')
   @Roles('MASTER')
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Param('id') id: string, @Request() req: any) {
-    await this.ramaService.delete(id, req.user);
+  await this.ramaService.delete(id, req.user, req.user?.id);
     return;
   }
 }

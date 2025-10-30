@@ -13,35 +13,35 @@ export class CuotaController {
   @Get()
   @HttpCode(HttpStatus.OK)
   async getAllCuotas(@Request() req: any) {
-    return await this.cuotaService.getAllCuota(req.user);
+    return await this.cuotaService.getAllCuota(req.user, req.user?.id);
   }
 
   @Get(':id')
   @Roles('MASTER')
   @HttpCode(HttpStatus.OK)
   async getCuotaById(@Param('id') id: string, @Request() req: any) {
-    return await this.cuotaService.getById(id, req.user);
+    return await this.cuotaService.getById(id, req.user, req.user?.id);
   }
 
   @Post()
   @Roles('MASTER')
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body() body: CreateCuotaDTO) {
-    return await this.cuotaService.create(body);
+  async create(@Body() body: CreateCuotaDTO, @Request() req: any) {
+    return await this.cuotaService.create(body, req.user?.id);
   }
 
   @Patch(':id')
   @Roles('MASTER')
   @HttpCode(HttpStatus.OK)
   async update(@Param('id') id: string, @Body() body: UpdateCuotaDTO, @Request() req: any) {
-    return await this.cuotaService.update(id, body, req.user);
+    return await this.cuotaService.update(id, body, req.user, req.user?.id);
   }
 
   @Delete(':id')
   @Roles('MASTER')
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Param('id') id: string, @Request() req: any) {
-    await this.cuotaService.delete(id, req.user);
+    await this.cuotaService.delete(id, req.user, req.user?.id);
     return;
   }
 }

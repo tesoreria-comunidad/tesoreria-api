@@ -30,7 +30,7 @@ export class PaymentsController {
   @Post()
   @Roles('MASTER', 'DIRIGENTE', 'BENEFICIARIO')
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body() createPaymentDto: CreatePaymentDto) {
+  async create(@Body() createPaymentDto: CreatePaymentDto, @Request() req: any) {
     try {
       const family = await this.familyService.findOne(
         createPaymentDto.id_family,
@@ -40,7 +40,7 @@ export class PaymentsController {
         throw new NotFoundException('family not found');
       }
 
-      return this.paymentsService.create(createPaymentDto);
+  return this.paymentsService.create(createPaymentDto, req.user, req.user?.id);
     } catch (error) {
       throw error;
     }
@@ -50,27 +50,27 @@ export class PaymentsController {
   @Roles('MASTER', 'DIRIGENTE')
   @HttpCode(HttpStatus.OK)
   findAll(@Request() req: any) {
-    return this.paymentsService.findAll(req.user);
+  return this.paymentsService.findAll(req.user, req.user?.id);
   }
 
   @Get(':id')
   @Roles('MASTER', 'DIRIGENTE')
   @HttpCode(HttpStatus.OK)
   findOne(@Param('id') id: string, @Request() req: any) {
-    return this.paymentsService.findOne(id, req.user);
+  return this.paymentsService.findOne(id, req.user, req.user?.id);
   }
 
   @Patch(':id')
   @Roles('MASTER', 'DIRIGENTE')
   @HttpCode(HttpStatus.OK)
   update(@Param('id') id: string, @Body() updatePaymentDto: UpdatePaymentDto, @Request() req: any) {
-    return this.paymentsService.update(id, updatePaymentDto, req.user);
+  return this.paymentsService.update(id, updatePaymentDto, req.user, req.user?.id);
   }
 
   @Delete(':id')
   @Roles('MASTER')
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id') id: string, @Request() req: any) {
-    return this.paymentsService.remove(id, req.user);
+  return this.paymentsService.remove(id, req.user, req.user?.id);
   }
 }
