@@ -180,9 +180,9 @@ export class UpdateUserDTO {
   @IsOptional()
   phone?: string;
 
-  @Transform(({ value }) => (value ? value.toLowerCase() : value)) 
   @IsEmail({}, { message: 'Debe proporcionar un email válido' })
   @IsOptional()
+  @Transform(({ value }) => (value === null || value === '' ? undefined : value)) 
   email?: string;
 
   @IsEnum(Gender, { message: 'El género debe ser válido' })
