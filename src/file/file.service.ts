@@ -26,11 +26,11 @@ export class FileService {
     this.bucketName = this.configService.get('AWS_BUCKET_NAME')!;
   }
 
-  async upload(file: Express.Multer.File) {
+  async upload(file: Express.Multer.File, actorId?: string) {
     try {
       const fileKey = `${Date.now()}-${uuid()}-${file.originalname}`;
 
-      const log = await this.actionLogsService.start(ActionType.FILE_UPLOAD, 'system', {
+      const log = await this.actionLogsService.start(ActionType.FILE_UPLOAD, actorId ?? 'system', {
         metadata: { originalName: file.originalname },
       });
 

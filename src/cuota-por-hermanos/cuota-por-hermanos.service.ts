@@ -11,12 +11,12 @@ import { ActionTargetTable, ActionType } from '@prisma/client';
 export class CuotaPorHermanosService {
   constructor(private prisma: PrismaService, private actionLogsService: ActionLogsService) {}
 
-  async create(data: CreateCuotaPorHermanosDto) {
+  async create(data: CreateCuotaPorHermanosDto, actorId?: string) {
     // Evitar duplicados
     const exists = await this.prisma.cuotaPorHermanos.findFirst({ where: { cantidad: data.cantidad } });
     if (exists) throw new ConflictException('Ya existe una cuota para esa cantidad de hermanos');
 
-    const log = await this.actionLogsService.start(ActionType.CPH_CREATE, 'system', {
+    const log = await this.actionLogsService.start(ActionType.CPH_CREATE, actorId ?? 'system', {
       target_table: ActionTargetTable.CPH,
       metadata: { action: 'create_cph', payload: { ...data } },
     });
