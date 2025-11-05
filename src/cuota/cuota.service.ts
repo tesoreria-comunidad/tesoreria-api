@@ -8,12 +8,15 @@ import { PrismaClient, Cuota } from '@prisma/client';
 import { CreateCuotaDTO, UpdateCuotaDTO } from './dto/cuota.dto';
 import { RoleFilterService } from 'src/services/RoleFilter.service';
 import { PrismaService } from 'src/prisma.service';
+import { ActionLogsService } from 'src/action-logs/action-logs.service';
+import { ActionType, ActionTargetTable } from '@prisma/client';
 
 @Injectable()
 export class CuotaService {
   constructor(
     private prisma: PrismaService,
     private roleFilterService: RoleFilterService,
+    private actionLogsService: ActionLogsService,
   ) {}
   public async getAllCuota(loggedUser: any, actorId?: string) {
     try {
@@ -66,9 +69,20 @@ export class CuotaService {
           data: { is_active: false },
         });
       }
-      return await this.prisma.cuota.create({
-        data,
+
+      const log = await this.actionLogsService.start(ActionType.CUOTA_CREATE, actorId ?? 'system', {
+        target_table: ActionTargetTable.CUOTA,
+        metadata: { action: 'create_cuota', payload: { ...data } },
       });
+
+      try {
+        const created = await this.prisma.cuota.create({ data });
+        await this.actionLogsService.markSuccess(log.id, 'Cuota creada', { createdId: created.id });
+        return created;
+      } catch (error) {
+        await this.actionLogsService.markError(log.id, error as Error);
+        throw error;
+      }
     } catch (error) {
       if (error instanceof BadRequestException) {
         throw error;
@@ -97,10 +111,19 @@ export class CuotaService {
         throw new BadRequestException('El monto de CFA no puede ser negativo');
       }
 
-      return await this.prisma.cuota.update({
-        where,
-        data,
+      const log = await this.actionLogsService.start(ActionType.CUOTA_UPDATE, actorId ?? 'system', {
+        target_table: ActionTargetTable.CUOTA,
+        target_id: id,
+        metadata: { action: 'update_cuota', payload: { ...data } },
       });
+      try {
+        const updated = await this.prisma.cuota.update({ where, data });
+        await this.actionLogsService.markSuccess(log.id, 'Cuota actualizada', { updatedId: updated.id });
+        return updated;
+      } catch (error) {
+        await this.actionLogsService.markError(log.id, error as Error);
+        throw error;
+      }
     } catch (error) {
       if (
         error instanceof NotFoundException ||
@@ -122,9 +145,19 @@ export class CuotaService {
       // Verificar que la cuota existe
       await this.getById(id, loggedUser);
 
-      return await this.prisma.cuota.delete({
-        where,
+      const log = await this.actionLogsService.start(ActionType.CUOTA_DELETE, actorId ?? 'system', {
+        target_table: ActionTargetTable.CUOTA,
+        target_id: id,
+        metadata: { action: 'delete_cuota' },
       });
+      try {
+        const deleted = await this.prisma.cuota.delete({ where });
+        await this.actionLogsService.markSuccess(log.id, 'Cuota eliminada', { deletedId: deleted.id });
+        return deleted;
+      } catch (error) {
+        await this.actionLogsService.markError(log.id, error as Error);
+        throw error;
+      }
     } catch (error) {
       if (
         error instanceof NotFoundException ||

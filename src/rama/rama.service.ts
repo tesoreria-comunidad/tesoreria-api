@@ -9,12 +9,15 @@ import { PrismaClient, Rama } from '@prisma/client';
 import { CreateRamaDTO, UpdateRamaDTO } from './dto/rama.dto';
 import { RoleFilterService } from 'src/services/RoleFilter.service';
 import { PrismaService } from 'src/prisma.service';
+import { ActionLogsService } from 'src/action-logs/action-logs.service';
+import { ActionTargetTable } from '@prisma/client';
 
 @Injectable()
 export class RamaService {
   constructor(
     private prisma: PrismaService,
     private roleFilterService: RoleFilterService,
+    private actionLogsService: ActionLogsService,
   ) {}
   public async getAllRama() {
     try {
@@ -75,15 +78,21 @@ export class RamaService {
         throw new ConflictException('Ya existe una rama con ese nombre');
       }
 
-      return await this.prisma.rama.create({
-        data: {
-          ...data,
-          name: data.name.trim(),
-        },
-        include: {
-          users: true,
-        },
+      const log = await this.actionLogsService.start(('RAMA_CREATE' as any) as any, 'system', {
+        target_table: ActionTargetTable.RAMA,
+        metadata: { action: 'create_rama', payload: { ...data } },
       });
+      try {
+        const created = await this.prisma.rama.create({
+          data: { ...data, name: data.name.trim() },
+          include: { users: true },
+        });
+        await this.actionLogsService.markSuccess(log.id, 'Rama creada', { createdId: created.id });
+        return created;
+      } catch (error) {
+        await this.actionLogsService.markError(log.id, error as Error);
+        throw error;
+      }
     } catch (error) {
       if (
         error instanceof BadRequestException ||
@@ -124,16 +133,23 @@ export class RamaService {
         }
       }
 
-      return await this.prisma.rama.update({
-        where: { id },
-        data: {
-          ...data,
-          name: data.name ? data.name.trim() : undefined,
-        },
-        include: {
-          users: true,
-        },
+      const log = await this.actionLogsService.start(('RAMA_UPDATE' as any) as any, actorId ?? 'system', {
+        target_table: ActionTargetTable.RAMA,
+        target_id: id,
+        metadata: { action: 'update_rama', payload: { ...data } },
       });
+      try {
+        const updated = await this.prisma.rama.update({
+          where: { id },
+          data: { ...data, name: data.name ? data.name.trim() : undefined },
+          include: { users: true },
+        });
+        await this.actionLogsService.markSuccess(log.id, 'Rama actualizada', { updatedId: updated.id });
+        return updated;
+      } catch (error) {
+        await this.actionLogsService.markError(log.id, error as Error);
+        throw error;
+      }
     } catch (error) {
       if (
         error instanceof NotFoundException ||
@@ -162,9 +178,19 @@ export class RamaService {
         );
       }
 
-      return await this.prisma.rama.delete({
-        where: { id },
+      const log = await this.actionLogsService.start(('RAMA_DELETE' as any) as any, actorId ?? 'system', {
+        target_table: ActionTargetTable.RAMA,
+        target_id: id,
+        metadata: { action: 'delete_rama' },
       });
+      try {
+        const deleted = await this.prisma.rama.delete({ where: { id } });
+        await this.actionLogsService.markSuccess(log.id, 'Rama eliminada', { deletedId: deleted.id });
+        return deleted;
+      } catch (error) {
+        await this.actionLogsService.markError(log.id, error as Error);
+        throw error;
+      }
     } catch (error) {
       if (
         error instanceof NotFoundException ||

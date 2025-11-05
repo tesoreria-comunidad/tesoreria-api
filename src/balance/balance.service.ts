@@ -179,8 +179,7 @@ export class BalanceService {
     const { id } = await this.authService.getDataFromToken(req);
     const already = await this.prisma.actionLog.findFirst({
       where: {
-        // CAST: new enum value may require prisma client regeneration; use any to avoid TS errors until generated
-        action_type: ('BALANCE_UPDATE_ALL' as any),
+        action_type: ActionType.BALANCE_UPDATE_ALL,
         createdAt: { gte: from, lte: to },
       },
       select: { id: true, createdAt: true, status: true },
@@ -192,8 +191,7 @@ export class BalanceService {
     }
 
     const log = await this.actionLogsService.start(
-      // new enum value added to schema; cast to any until prisma client is regenerated
-      ('BALANCE_UPDATE_ALL' as any) as any,
+      ActionType.BALANCE_UPDATE_ALL,
       id,
       { metadata: { notes: 'Inicio de actualización mensual' } },
     );
