@@ -213,6 +213,7 @@ enum ActionTargetTable {
   CUOTA
   CPH
   BALANCE
+  FOLDER
 }
 
 enum TransactionCategory {

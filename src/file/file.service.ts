@@ -7,8 +7,8 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v4 as uuid } from 'uuid';
 import { ActionLogsService } from 'src/action-logs/action-logs.service';
-// file actions not part of ActionType enum by default; we added FILE_UPLOAD/FILE_DELETE to schema.prisma
-// until prisma client is regenerated we'll pass action strings as any when calling start().
+import { ActionType } from '@prisma/client';
+// FILE_UPLOAD/FILE_DELETE were added to schema.prisma; now using typed ActionType values.
 
 @Injectable()
 export class FileService {
@@ -30,7 +30,7 @@ export class FileService {
     try {
       const fileKey = `${Date.now()}-${uuid()}-${file.originalname}`;
 
-      const log = await this.actionLogsService.start(('FILE_UPLOAD' as any) as any, 'system', {
+      const log = await this.actionLogsService.start(ActionType.FILE_UPLOAD, 'system', {
         metadata: { originalName: file.originalname },
       });
 
@@ -60,7 +60,7 @@ export class FileService {
 
   async delete(fileName: string) {
     try {
-      const log = await this.actionLogsService.start(('FILE_DELETE' as any) as any, 'system', {
+      const log = await this.actionLogsService.start(ActionType.FILE_DELETE, 'system', {
         metadata: { fileName },
       });
       try {

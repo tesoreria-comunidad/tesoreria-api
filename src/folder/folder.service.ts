@@ -8,12 +8,15 @@ import { Folder } from '@prisma/client';
 import { CreateFolderDTO, UpdateFolderDTO } from './dto/folder.dto';
 import { RoleFilterService } from 'src/services/RoleFilter.service';
 import { PrismaService } from 'src/prisma.service';
+import { ActionLogsService } from 'src/action-logs/action-logs.service';
+import { ActionType, ActionTargetTable } from '@prisma/client';
 
 @Injectable()
 export class FolderService {
   constructor(
     private prisma: PrismaService,
     private roleFilterService: RoleFilterService,
+    private actionLogsService: ActionLogsService,
   ) {}
   public async getAllFolder(loggedUser: any, actorId?: string) {
     try {
@@ -62,12 +65,18 @@ export class FolderService {
 
   public async create(data: CreateFolderDTO, actorId?: string) {
     try {
-      return await this.prisma.folder.create({
-        data,
-        include: {
-          user: true,
-        },
+      const log = await this.actionLogsService.start(ActionType.FOLDER_CREATE, actorId ?? 'system', {
+        target_table: ActionTargetTable.FOLDER,
+        metadata: { action: 'create_folder', payload: { ...data } },
       });
+      try {
+        const created = await this.prisma.folder.create({ data, include: { user: true } });
+        await this.actionLogsService.markSuccess(log.id, 'Carpeta creada', { createdId: created.id });
+        return created;
+      } catch (error) {
+        await this.actionLogsService.markError(log.id, error as Error);
+        throw error;
+      }
     } catch (error) {
       console.log('Error al crear la carpeta: ', error);
       throw new InternalServerErrorException('Error al crear la carpeta');
@@ -82,14 +91,19 @@ export class FolderService {
       const where = this.roleFilterService.apply(loggedUser);
       // Verificar que la carpeta existe
       await this.getById(id, loggedUser);
-
-      return await this.prisma.folder.update({
-        where,
-        data,
-        include: {
-          user: true,
-        },
+      const log = await this.actionLogsService.start(ActionType.FOLDER_UPDATE, actorId ?? 'system', {
+        target_table: ActionTargetTable.FOLDER,
+        target_id: id,
+        metadata: { action: 'update_folder', payload: { ...data } },
       });
+      try {
+        const updated = await this.prisma.folder.update({ where, data, include: { user: true } });
+        await this.actionLogsService.markSuccess(log.id, 'Carpeta actualizada', { updatedId: updated.id });
+        return updated;
+      } catch (error) {
+        await this.actionLogsService.markError(log.id, error as Error);
+        throw error;
+      }
     } catch (error) {
       if (
         error instanceof NotFoundException ||
@@ -110,10 +124,19 @@ export class FolderService {
       const where = this.roleFilterService.apply(loggedUser);
       // Verificar que la carpeta existe
       await this.getById(id, loggedUser);
-
-      return await this.prisma.folder.delete({
-        where,
+      const log = await this.actionLogsService.start(ActionType.FOLDER_DELETE, actorId ?? 'system', {
+        target_table: ActionTargetTable.FOLDER,
+        target_id: id,
+        metadata: { action: 'delete_folder' },
       });
+      try {
+        const deleted = await this.prisma.folder.delete({ where });
+        await this.actionLogsService.markSuccess(log.id, 'Carpeta eliminada', { deletedId: deleted.id });
+        return deleted;
+      } catch (error) {
+        await this.actionLogsService.markError(log.id, error as Error);
+        throw error;
+      }
     } catch (error) {
       if (
         error instanceof NotFoundException ||

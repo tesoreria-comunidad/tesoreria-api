@@ -10,7 +10,7 @@ import { CreateRamaDTO, UpdateRamaDTO } from './dto/rama.dto';
 import { RoleFilterService } from 'src/services/RoleFilter.service';
 import { PrismaService } from 'src/prisma.service';
 import { ActionLogsService } from 'src/action-logs/action-logs.service';
-import { ActionTargetTable } from '@prisma/client';
+import { ActionTargetTable, ActionType } from '@prisma/client';
 
 @Injectable()
 export class RamaService {
@@ -78,7 +78,7 @@ export class RamaService {
         throw new ConflictException('Ya existe una rama con ese nombre');
       }
 
-      const log = await this.actionLogsService.start(('RAMA_CREATE' as any) as any, 'system', {
+      const log = await this.actionLogsService.start(ActionType.RAMA_CREATE, 'system', {
         target_table: ActionTargetTable.RAMA,
         metadata: { action: 'create_rama', payload: { ...data } },
       });
@@ -133,7 +133,7 @@ export class RamaService {
         }
       }
 
-      const log = await this.actionLogsService.start(('RAMA_UPDATE' as any) as any, actorId ?? 'system', {
+      const log = await this.actionLogsService.start(ActionType.RAMA_UPDATE, actorId ?? 'system', {
         target_table: ActionTargetTable.RAMA,
         target_id: id,
         metadata: { action: 'update_rama', payload: { ...data } },
@@ -178,7 +178,7 @@ export class RamaService {
         );
       }
 
-      const log = await this.actionLogsService.start(('RAMA_DELETE' as any) as any, actorId ?? 'system', {
+      const log = await this.actionLogsService.start(ActionType.RAMA_DELETE, actorId ?? 'system', {
         target_table: ActionTargetTable.RAMA,
         target_id: id,
         metadata: { action: 'delete_rama' },
