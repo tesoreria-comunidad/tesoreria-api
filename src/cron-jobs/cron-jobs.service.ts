@@ -119,9 +119,10 @@ export class CronJobsService {
   /**
    * Método para ejecutar manualmente la actualización (útil para testing)
    */
-  async runMonthlyUpdateManually(): Promise<void> {
+  async runMonthlyUpdateManually(actorId?: string): Promise<void> {
     this.logger.log('Ejecutando actualización mensual manualmente...');
-    await this.updateFamilyBalancesForNewMonth();
+    // Forward actorId to BalanceService.updateAll which accepts either a Request or actorId
+    await this.balanceService.updateAll(actorId as any);
   }
 
   /**

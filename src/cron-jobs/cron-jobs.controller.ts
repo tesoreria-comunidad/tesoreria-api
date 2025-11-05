@@ -15,8 +15,8 @@ export class CronJobsController {
    */
   @Post('run-monthly-update')
   @Roles('MASTER', 'DIRIGENTE')
-  async runMonthlyUpdate() {
-    await this.cronJobsService.runMonthlyUpdateManually();
+  async runMonthlyUpdate(@Request() req: any) {
+    await this.cronJobsService.runMonthlyUpdateManually(req.user?.id);
     return {
       message: 'Actualización mensual de balances ejecutada exitosamente',
       timestamp: new Date().toISOString()

@@ -255,7 +255,13 @@ export class TransactionsService {
       );
     }
   }
-  async bulkCreate(transactions: CreateTransactionDTO[]) {
+  async bulkCreate(transactions: CreateTransactionDTO[], actorId?: string) {
+    const userId = actorId;
+    const log = await this.actionLogsService.start(ActionType.TRANSACTION_CREATE, userId ?? 'system', {
+      target_table: ActionTargetTable.TRANSACTIONS,
+      metadata: { action: 'bulk_create_transactions' },
+    });
+
     try {
       // Transformamos fechas y validamos mínimamente
       const data = transactions.map((tx) => ({
@@ -274,11 +280,16 @@ export class TransactionsService {
         skipDuplicates: true, // Evita error si hay UUIDs duplicados
       });
 
+      await this.actionLogsService.markSuccess(log.id, `Carga masiva completada (${result.count})`, {
+        createdCount: result.count,
+      });
+
       return {
         message: `${result.count} transacciones creadas exitosamente`,
         count: result.count,
       };
     } catch (error) {
+      await this.actionLogsService.markError(log.id, error as Error);
       console.log('Error al crear transacciones masivas', error);
       throw new InternalServerErrorException(
         'Error al crear transacciones en bloque',

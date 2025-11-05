@@ -93,8 +93,8 @@ export class TransactionsController {
   }
 
   @Post('bulk')
-  async bulkCreate(@Body() body: BulkCreateTransactionDTO) {
-    return this.transactionsService.bulkCreate(body.transactions);
+  async bulkCreate(@Body() body: BulkCreateTransactionDTO, @Request() req: any) {
+    return this.transactionsService.bulkCreate(body.transactions, req.user?.id);
   }
   @Get('stats/monthly')
   async getMonthlyStats(@Request() req: any) {

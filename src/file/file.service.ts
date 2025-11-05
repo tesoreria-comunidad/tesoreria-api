@@ -58,9 +58,9 @@ export class FileService {
     }
   }
 
-  async delete(fileName: string) {
+  async delete(fileName: string, actorId?: string) {
     try {
-      const log = await this.actionLogsService.start(ActionType.FILE_DELETE, 'system', {
+      const log = await this.actionLogsService.start(ActionType.FILE_DELETE, actorId ?? 'system', {
         metadata: { fileName },
       });
       try {

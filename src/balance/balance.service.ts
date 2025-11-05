@@ -172,11 +172,18 @@ export class BalanceService {
       throw new InternalServerErrorException('Error al actualizar el balance');
     }
   }
-  public async updateAll(req: ExpressRequest) {
+  public async updateAll(reqOrActor?: ExpressRequest | string) {
     const now = new Date();
     const from = startOfMonth(now);
     const to = endOfMonth(now);
-    const { id } = await this.authService.getDataFromToken(req);
+    // support passing either the Express request (controller flow) or an actorId string (cron/manual flow)
+    let actorId: string | undefined;
+    if (typeof reqOrActor === 'string') {
+      actorId = reqOrActor;
+    } else if (reqOrActor) {
+      const tokenData = await this.authService.getDataFromToken(reqOrActor as ExpressRequest);
+      actorId = tokenData?.id;
+    }
     const already = await this.prisma.actionLog.findFirst({
       where: {
         action_type: ActionType.BALANCE_UPDATE_ALL,
@@ -192,7 +199,7 @@ export class BalanceService {
 
     const log = await this.actionLogsService.start(
       ActionType.BALANCE_UPDATE_ALL,
-      id,
+      actorId ?? 'system',
       { metadata: { notes: 'Inicio de actualización mensual' } },
     );
     try {
