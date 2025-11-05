@@ -63,7 +63,7 @@ export class RamaService {
     }
   }
 
-  public async create(data: CreateRamaDTO) {
+  public async create(data: CreateRamaDTO, actorId?: string) {
     try {
       if (!data.name || data.name.trim().length === 0) {
         throw new BadRequestException('El nombre de la rama es requerido');
@@ -78,7 +78,7 @@ export class RamaService {
         throw new ConflictException('Ya existe una rama con ese nombre');
       }
 
-      const log = await this.actionLogsService.start(ActionType.RAMA_CREATE, 'system', {
+      const log = await this.actionLogsService.start(ActionType.RAMA_CREATE, actorId ?? 'system', {
         target_table: ActionTargetTable.RAMA,
         metadata: { action: 'create_rama', payload: { ...data } },
       });
