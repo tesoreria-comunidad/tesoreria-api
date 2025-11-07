@@ -65,11 +65,10 @@ export class UserService {
     }
   }
 
-  public async create(data: CreateUserDTO, loggedUser?: any, actorId?: string) {
-    const userId = (actorId as string) ?? (loggedUser?.id as string);
+  public async create(data: CreateUserDTO, actorId: string) {
     const log = await this.actionLogsService.start(
       ActionType.USER_CREATE,
-      userId,
+      actorId,
       { target_table: ActionTargetTable.USER },
     );
 
@@ -213,7 +212,12 @@ export class UserService {
     }
   }
 
-  public async update(id: string, data: UpdateUserDTO, loggedUser: any, actorId?: string) {
+  public async update(
+    id: string,
+    data: UpdateUserDTO,
+    loggedUser: any,
+    actorId?: string,
+  ) {
     const userId = (actorId as string) ?? (loggedUser?.id as string);
     const log = await this.actionLogsService.start(
       ActionType.USER_UPDATE,
@@ -547,9 +551,13 @@ export class UserService {
         skipDuplicates: true,
       });
 
-      await this.actionLogsService.markSuccess(log.id, `${result.count} usuarios creados en lote`, {
-        createdCount: result.count,
-      });
+      await this.actionLogsService.markSuccess(
+        log.id,
+        `${result.count} usuarios creados en lote`,
+        {
+          createdCount: result.count,
+        },
+      );
 
       return result;
     } catch (error) {
@@ -648,7 +656,11 @@ export class UserService {
       console.error('Error creating family:', error);
     }
   }
-  public async getUsersByFamily(familyId: string, loggedUser: any, actorId?: string) {
+  public async getUsersByFamily(
+    familyId: string,
+    loggedUser: any,
+    actorId?: string,
+  ) {
     try {
       if (!familyId)
         throw new BadRequestException('ID de familia es requerido');
@@ -673,7 +685,11 @@ export class UserService {
     }
   }
 
-  public async getFamilyAdmin(familyId: string, loggedUser: any, actorId?: string) {
+  public async getFamilyAdmin(
+    familyId: string,
+    loggedUser: any,
+    actorId?: string,
+  ) {
     try {
       const where = this.roleFilterService.apply(loggedUser, {
         id_family: familyId,
@@ -693,7 +709,11 @@ export class UserService {
     }
   }
 
-  public async getFamilyAdmins(familyId: string, loggedUser: any, actorId?: string) {
+  public async getFamilyAdmins(
+    familyId: string,
+    loggedUser: any,
+    actorId?: string,
+  ) {
     try {
       const where = this.roleFilterService.apply(loggedUser, {
         id_family: familyId,
@@ -722,7 +742,11 @@ export class UserService {
     const log = await this.actionLogsService.start(
       ActionType.USER_UPDATE,
       userActor,
-      { target_table: ActionTargetTable.USER, target_id: userId, id_family: familyId },
+      {
+        target_table: ActionTargetTable.USER,
+        target_id: userId,
+        id_family: familyId,
+      },
     );
 
     try {
@@ -808,7 +832,11 @@ export class UserService {
     const log = await this.actionLogsService.start(
       ActionType.USER_UPDATE,
       userActor,
-      { target_table: ActionTargetTable.USER, target_id: userId, id_family: familyId },
+      {
+        target_table: ActionTargetTable.USER,
+        target_id: userId,
+        id_family: familyId,
+      },
     );
 
     try {

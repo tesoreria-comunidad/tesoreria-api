@@ -21,7 +21,6 @@ import { BulkCreateTransactionDTO } from './dto/bulk-transaction.dto';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
-import { Request as ExpressRequest } from 'express';
 @UseGuards(AuthGuard, RolesGuard)
 @Controller('transactions')
 export class TransactionsController {
@@ -52,10 +51,7 @@ export class TransactionsController {
 
   @Post()
   @Roles('MASTER', 'DIRIGENTE')
-  async create(
-    @Body() dto: CreateTransactionDTO,
-    @Request() req: any,
-  ) {
+  async create(@Body() dto: CreateTransactionDTO, @Request() req: any) {
     return this.transactionsService.create(dto, req.user.id);
   }
 
@@ -70,7 +66,10 @@ export class TransactionsController {
     if (!dto.id_family) {
       throw new BadRequestException('id_family is required');
     }
-    return await this.transactionsService.createFamilyTransaction(dto, req.user.id);
+    return await this.transactionsService.createFamilyTransaction(
+      dto,
+      req.user.id,
+    );
   }
 
   @Patch(':id')
@@ -85,10 +84,7 @@ export class TransactionsController {
 
   @Delete(':id')
   @Roles('MASTER')
-  async remove(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Request() req: any,
-  ) {
+  async remove(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
     return this.transactionsService.remove(id, req.user.id);
   }
 
@@ -108,8 +104,9 @@ export class TransactionsController {
     @Body() body: BulkCreateTransactionDTO,
     @Request() req: any,
   ) {
-    return this.transactionsService.bulkCommunityTransactions(body.transactions, req.user.id);
+    return this.transactionsService.bulkCommunityTransactions(
+      body.transactions,
+      req.user.id,
+    );
   }
-
-  
 }
