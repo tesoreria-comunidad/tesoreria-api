@@ -43,6 +43,19 @@ export class UserService {
     }
   }
 
+  public async getUsersByRama(id_rama: string) {
+    try {
+      if (!id_rama) throw new BadRequestException('ID de rama es requerido');
+      return await this.prisma.user.findMany({
+        where: { id_rama },
+        orderBy: { name: 'asc' },
+      });
+    } catch (error) {
+      console.log('Error al obtener usuarios por rama', error);
+      throw new InternalServerErrorException('Error al obtener usuarios por rama');
+    }
+  }
+
   public async getById(id: string, loggedUser: any, actorId?: string) {
     try {
       if (!id) throw new BadRequestException('ID es requerido');

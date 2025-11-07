@@ -165,6 +165,19 @@ export class FamilyService {
     }
   }
 
+  public async getFamiliesByRama(id_rama: string) {
+    try {
+      if (!id_rama) {
+        throw new BadRequestException('ID de rama es requerido');
+      }
+      return await this.prisma.family.findMany({
+        where: { manage_by: id_rama }});
+    } catch (error) {
+      console.error('Error al obtener las familias por rama: ', error);
+      throw new InternalServerErrorException('Error al obtener las familias por rama');
+    }
+  }
+
   public async findAll(): Promise<Family[]> {
     try {
       return await this.prisma.family.findMany({

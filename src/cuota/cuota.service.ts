@@ -17,8 +17,7 @@ export class CuotaService {
   ) {}
   public async getAllCuota(loggedUser: any, actorId?: string) {
     try {
-      const where = this.roleFilterService.apply(loggedUser);
-      return await this.prisma.cuota.findMany({ where });
+      return await this.prisma.cuota.findMany();
     } catch (error) {
       console.log('Error al obtener las cuotas:', error);
       throw new InternalServerErrorException('Error al obtener las cuotas');
@@ -30,10 +29,7 @@ export class CuotaService {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-      const where = this.roleFilterService.apply(loggedUser);
-      const cuota = await this.prisma.cuota.findFirst({
-        where,
-      });
+      const cuota = await this.prisma.cuota.findFirst();
 
       if (!cuota) {
         throw new NotFoundException(`Cuota con ID ${id} no encontrada`);
@@ -83,7 +79,6 @@ export class CuotaService {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-      const where = this.roleFilterService.apply(loggedUser);
       // Verificar que la cuota existe
       await this.getById(id, loggedUser);
 
@@ -96,9 +91,9 @@ export class CuotaService {
       if (data.cfa_amount !== undefined && data.cfa_amount < 0) {
         throw new BadRequestException('El monto de CFA no puede ser negativo');
       }
-
+      
       return await this.prisma.cuota.update({
-        where,
+        where: {id},
         data,
       });
     } catch (error) {
@@ -118,13 +113,10 @@ export class CuotaService {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-      const where = this.roleFilterService.apply(loggedUser);
       // Verificar que la cuota existe
       await this.getById(id, loggedUser);
 
-      return await this.prisma.cuota.delete({
-        where,
-      });
+      return await this.prisma.cuota.delete({where: {id}});
     } catch (error) {
       if (
         error instanceof NotFoundException ||
