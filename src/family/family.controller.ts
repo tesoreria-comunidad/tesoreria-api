@@ -35,6 +35,11 @@ export class FamilyController {
     return this.familyService.findAll();
   }
 
+  @Get('/by-rama/:id_rama')
+  getUsersByFamily(@Param("id_rama") id_rama: string) {
+    return this.familyService.getFamiliesByRama(id_rama);
+  }
+
   @Get(':id')
   @Roles('MASTER', 'DIRIGENTE', 'FAMILY', 'BENEFICIARIO')
   @HttpCode(HttpStatus.OK)

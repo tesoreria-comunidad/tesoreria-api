@@ -104,9 +104,7 @@ export class TransactionsService {
 
   async findAll(loggedUser: any, actorId?: string) {
     try {
-      const where = this.roleFilterService.apply(loggedUser);
       return await this.prisma.transactions.findMany({
-        where,
         orderBy: { createdAt: 'desc' },
       });
     } catch (error) {
@@ -288,9 +286,7 @@ export class TransactionsService {
   async getMonthlyStats(loggedUser: any, actorId?: string) {
     try {
       // Traemos todas las transacciones con fecha y dirección
-      const where = this.roleFilterService.apply(loggedUser);
       const transactions = await this.prisma.transactions.findMany({
-        where,
         select: {
           amount: true,
           payment_date: true,
