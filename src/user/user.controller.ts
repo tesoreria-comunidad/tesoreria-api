@@ -36,6 +36,11 @@ export class UserController {
     return await this.userService.getAllUser(req.user, req.user?.id);
   }
 
+  @Get('/by-rama/:id_rama')
+  async getUsersbyRama(@Param('id_rama') id_rama: string) {
+    return await this.userService.getUsersByRama(id_rama);
+  }
+
   @Get(':id')
   @Roles('MASTER', 'DIRIGENTE')
   async getUserById(@Param('id') id: string, @Request() req: any) {
