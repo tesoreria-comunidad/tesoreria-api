@@ -14,8 +14,8 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
-  async register(@Body() user: CreateUserDTO) {
-    return this.authService.register(user);
+  async register(@Body() user: CreateUserDTO, @Request() req: ExpressRequest) {
+    return this.authService.register(user, req);
   }
   @Post('login')
   async login(@Body() { username, password }: UserLoginDTO) {
