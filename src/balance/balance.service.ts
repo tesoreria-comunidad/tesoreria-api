@@ -72,7 +72,7 @@ export class BalanceService {
   public async create(data: CreateBalanceDTO, actorId?: string) {
     try {
       const log = await this.actionLogsService.start(
-        ActionType.BALANCE_UPDATE,
+        ActionType.BALANCE_CREATE,
         actorId ?? 'system',
         { metadata: { action: 'create_balance', payload: { ...data } } },
       );
