@@ -6,10 +6,13 @@ import {
   UnauthorizedException,
   UploadedFile,
   UseInterceptors,
+  UseGuards,
 } from '@nestjs/common';
+import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { FileService } from './file.service';
 import { Request as ExpressRequest } from 'express';
+@UseGuards(AuthGuard)
 @Controller('file')
 export class FileController {
   constructor(private readonly fileService: FileService) {}
@@ -18,13 +21,9 @@ export class FileController {
   @UseInterceptors(FileInterceptor('file'))
   async uploadFile(
     @UploadedFile() file: Express.Multer.File,
-    @Request() req: ExpressRequest,
+    @Request() req: any,
   ) {
-    const [type, token] = req.headers.authorization?.split(' ') ?? [];
-    if (type !== 'Bearer' || !token) {
-      throw new UnauthorizedException('Invalid authorization header');
-    }
-
-    return await this.fileService.upload(file);
+    // AuthGuard ensures req.user is available
+    return await this.fileService.upload(file, req.user?.id);
   }
 }

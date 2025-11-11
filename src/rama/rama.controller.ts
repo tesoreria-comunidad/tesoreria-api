@@ -38,8 +38,8 @@ export class RamaController {
   @Post()
   @Roles('MASTER')
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body() body: CreateRamaDTO) {
-    return await this.ramaService.create(body);
+  async create(@Body() body: CreateRamaDTO, @Request() req: any) {
+    return await this.ramaService.create(body, req.user?.id);
   }
 
   @Patch(':id')

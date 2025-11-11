@@ -36,7 +36,7 @@ export class FamilyService {
         custom_cfa_value: 0,
         is_custom_cuota: false,
         is_custom_cfa: false,
-      });
+      }, userActor);
 
       const balanceId = newBalance.id;
 
