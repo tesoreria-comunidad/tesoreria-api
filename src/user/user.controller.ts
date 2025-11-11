@@ -33,19 +33,24 @@ export class UserController {
   @HttpCode(HttpStatus.OK)
   @Roles('MASTER', 'DIRIGENTE')
   async getAllUsers(@Request() req: any) {
-  return await this.userService.getAllUser(req.user, req.user?.id);
+    return await this.userService.getAllUser(req.user, req.user?.id);
+  }
+
+  @Get('/by-rama/:id_rama')
+  async getUsersbyRama(@Param('id_rama') id_rama: string) {
+    return await this.userService.getUsersByRama(id_rama);
   }
 
   @Get(':id')
   @Roles('MASTER', 'DIRIGENTE')
   async getUserById(@Param('id') id: string, @Request() req: any) {
-  return await this.userService.getById(id, req.user, req.user?.id);
+    return await this.userService.getById(id, req.user, req.user?.id);
   }
 
   @Post()
   @Roles('MASTER', 'DIRIGENTE')
   async createUser(@Body() body: CreateUserDTO, @Request() req: any) {
-  return await this.userService.create(body, req.user, req.user?.id);
+    return await this.userService.create(body, req.user?.id);
   }
 
   @Patch(':id')
@@ -55,19 +60,23 @@ export class UserController {
     @Body() body: UpdateUserDTO,
     @Request() req: any,
   ) {
-  return await this.userService.update(id, body, req.user, req.user?.id);
+    return await this.userService.update(id, body, req.user, req.user?.id);
   }
 
   @Delete(':id')
   @Roles('MASTER', 'DIRIGENTE')
   async deleteUser(@Param('id') id: string, @Request() req: any) {
     try {
-  const existingUser = await this.userService.getById(id, req.user, req.user?.id);
+      const existingUser = await this.userService.getById(
+        id,
+        req.user,
+        req.user?.id,
+      );
       if (!existingUser) {
         throw new NotFoundException('Usuario no encontrado');
       }
 
-  return await this.userService.delete(id, req.user, req.user?.id);
+      return await this.userService.delete(id, req.user, req.user?.id);
     } catch (error) {
       throw error;
     }
@@ -115,7 +124,12 @@ export class UserController {
       }
     }
 
-  return await this.userService.bulkCreate(users, id_rama, req.user, req.user?.id);
+    return await this.userService.bulkCreate(
+      users,
+      id_rama,
+      req.user,
+      req.user?.id,
+    );
   }
   @Roles('MASTER', 'DIRIGENTE')
   @Get('family/:familyId')
@@ -124,7 +138,11 @@ export class UserController {
     @Param('familyId') familyId: string,
     @Request() req: any,
   ) {
-  return await this.userService.getUsersByFamily(familyId, req.user, req.user?.id);
+    return await this.userService.getUsersByFamily(
+      familyId,
+      req.user,
+      req.user?.id,
+    );
   }
 
   @Roles('MASTER', 'DIRIGENTE')
@@ -134,7 +152,11 @@ export class UserController {
     @Param('familyId') familyId: string,
     @Request() req: any,
   ) {
-  return await this.userService.getFamilyAdmin(familyId, req.user, req.user?.id);
+    return await this.userService.getFamilyAdmin(
+      familyId,
+      req.user,
+      req.user?.id,
+    );
   }
 
   @Roles('MASTER', 'DIRIGENTE')
@@ -144,7 +166,11 @@ export class UserController {
     @Param('familyId') familyId: string,
     @Request() req: any,
   ) {
-  return await this.userService.getFamilyAdmins(familyId, req.user, req.user?.id);
+    return await this.userService.getFamilyAdmins(
+      familyId,
+      req.user,
+      req.user?.id,
+    );
   }
 
   @Roles('MASTER', 'DIRIGENTE')

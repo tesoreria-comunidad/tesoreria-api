@@ -4,9 +4,8 @@ import {
   BadRequestException,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { PrismaClient, Cuota } from '@prisma/client';
+import { Cuota } from '@prisma/client';
 import { CreateCuotaDTO, UpdateCuotaDTO } from './dto/cuota.dto';
-import { RoleFilterService } from 'src/services/RoleFilter.service';
 import { PrismaService } from 'src/prisma.service';
 import { ActionLogsService } from 'src/action-logs/action-logs.service';
 import { ActionType, ActionTargetTable } from '@prisma/client';
@@ -15,13 +14,11 @@ import { ActionType, ActionTargetTable } from '@prisma/client';
 export class CuotaService {
   constructor(
     private prisma: PrismaService,
-    private roleFilterService: RoleFilterService,
     private actionLogsService: ActionLogsService,
   ) {}
   public async getAllCuota(loggedUser: any, actorId?: string) {
     try {
-      const where = this.roleFilterService.apply(loggedUser);
-      return await this.prisma.cuota.findMany({ where });
+      return await this.prisma.cuota.findMany();
     } catch (error) {
       console.log('Error al obtener las cuotas:', error);
       throw new InternalServerErrorException('Error al obtener las cuotas');
@@ -33,10 +30,7 @@ export class CuotaService {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-      const where = this.roleFilterService.apply(loggedUser);
-      const cuota = await this.prisma.cuota.findFirst({
-        where,
-      });
+      const cuota = await this.prisma.cuota.findFirst();
 
       if (!cuota) {
         throw new NotFoundException(`Cuota con ID ${id} no encontrada`);
@@ -70,14 +64,20 @@ export class CuotaService {
         });
       }
 
-      const log = await this.actionLogsService.start(ActionType.CUOTA_CREATE, actorId ?? 'system', {
-        target_table: ActionTargetTable.CUOTA,
-        metadata: { action: 'create_cuota', payload: { ...data } },
-      });
+      const log = await this.actionLogsService.start(
+        ActionType.CUOTA_CREATE,
+        actorId ?? 'system',
+        {
+          target_table: ActionTargetTable.CUOTA,
+          metadata: { action: 'create_cuota', payload: { ...data } },
+        },
+      );
 
       try {
         const created = await this.prisma.cuota.create({ data });
-        await this.actionLogsService.markSuccess(log.id, 'Cuota creada', { createdId: created.id });
+        await this.actionLogsService.markSuccess(log.id, 'Cuota creada', {
+          createdId: created.id,
+        });
         return created;
       } catch (error) {
         await this.actionLogsService.markError(log.id, error as Error);
@@ -92,12 +92,16 @@ export class CuotaService {
     }
   }
 
-  public async update(id: string, data: UpdateCuotaDTO, loggedUser: any, actorId?: string) {
+  public async update(
+    id: string,
+    data: UpdateCuotaDTO,
+    loggedUser: any,
+    actorId?: string,
+  ) {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-      const where = this.roleFilterService.apply(loggedUser);
       // Verificar que la cuota existe
       await this.getById(id, loggedUser);
 
@@ -111,14 +115,20 @@ export class CuotaService {
         throw new BadRequestException('El monto de CFA no puede ser negativo');
       }
 
-      const log = await this.actionLogsService.start(ActionType.CUOTA_UPDATE, actorId ?? 'system', {
-        target_table: ActionTargetTable.CUOTA,
-        target_id: id,
-        metadata: { action: 'update_cuota', payload: { ...data } },
-      });
+      const log = await this.actionLogsService.start(
+        ActionType.CUOTA_UPDATE,
+        actorId ?? 'system',
+        {
+          target_table: ActionTargetTable.CUOTA,
+          target_id: id,
+          metadata: { action: 'update_cuota', payload: { ...data } },
+        },
+      );
       try {
-        const updated = await this.prisma.cuota.update({ where, data });
-        await this.actionLogsService.markSuccess(log.id, 'Cuota actualizada', { updatedId: updated.id });
+        const updated = await this.prisma.cuota.update({ where: { id }, data });
+        await this.actionLogsService.markSuccess(log.id, 'Cuota actualizada', {
+          updatedId: updated.id,
+        });
         return updated;
       } catch (error) {
         await this.actionLogsService.markError(log.id, error as Error);
@@ -141,18 +151,23 @@ export class CuotaService {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-      const where = this.roleFilterService.apply(loggedUser);
       // Verificar que la cuota existe
       await this.getById(id, loggedUser);
 
-      const log = await this.actionLogsService.start(ActionType.CUOTA_DELETE, actorId ?? 'system', {
-        target_table: ActionTargetTable.CUOTA,
-        target_id: id,
-        metadata: { action: 'delete_cuota' },
-      });
+      const log = await this.actionLogsService.start(
+        ActionType.CUOTA_DELETE,
+        actorId ?? 'system',
+        {
+          target_table: ActionTargetTable.CUOTA,
+          target_id: id,
+          metadata: { action: 'delete_cuota' },
+        },
+      );
       try {
-        const deleted = await this.prisma.cuota.delete({ where });
-        await this.actionLogsService.markSuccess(log.id, 'Cuota eliminada', { deletedId: deleted.id });
+        const deleted = await this.prisma.cuota.delete({ where: { id } });
+        await this.actionLogsService.markSuccess(log.id, 'Cuota eliminada', {
+          deletedId: deleted.id,
+        });
         return deleted;
       } catch (error) {
         await this.actionLogsService.markError(log.id, error as Error);
