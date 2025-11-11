@@ -12,28 +12,23 @@ import {
 import { RoleFilterService } from 'src/services/RoleFilter.service';
 import { log } from 'console';
 import { TransactionDirection } from './constants';
-import { Request } from 'express';
-import { AuthService } from 'src/auth/auth.service';
+import { ActionLogsService } from 'src/action-logs/action-logs.service';
+import { ActionType, ActionTargetTable } from '@prisma/client';
 
 @Injectable()
 export class TransactionsService {
   constructor(
     private prisma: PrismaService,
     private roleFilterService: RoleFilterService,
-    private authService: AuthService,
+    private actionLogsService: ActionLogsService,
   ) {}
+  async create(data: CreateTransactionDTO, actorId: string) {
+    const log = await this.actionLogsService.start(
+      ActionType.TRANSACTION_CREATE,
+      actorId,
+      { target_table: ActionTargetTable.TRANSACTIONS },
+    );
 
-  async create(data: CreateTransactionDTO, req: Request) {
-    const { id: userId } = await this.authService.getDataFromToken(req);
-
-    const log = await this.prisma.actionLog.create({
-      data: {
-        action_type: 'TRANSACTION_CREATE',
-        id_user: userId,
-        status: 'PENDING',
-        target_table: 'TRANSACTIONS',
-      },
-    });
     try {
       if (data.id_family) {
         const family = await this.prisma.family.findUnique({
@@ -48,41 +43,22 @@ export class TransactionsService {
       const newTransaccion = await this.prisma.transactions.create({
         data,
       });
-      await this.prisma.actionLog.update({
-        where: { id: log.id },
-        data: {
-          action_type: 'TRANSACTION_CREATE',
-          id_user: userId,
-          status: 'SUCCESS',
-          target_table: 'TRANSACTIONS',
-          id_transaction: newTransaccion.id,
-          target_id: newTransaccion.id,
-          metadata: {
-            transactionAmoount: newTransaccion.amount,
-          },
-        },
+      await this.actionLogsService.markSuccess(log.id, undefined, {
+        id_transaction: newTransaccion.id,
+        target_id: newTransaccion.id,
+        transactionAmount: newTransaccion.amount,
       });
       return newTransaccion;
     } catch (error) {
       console.log('Error al crear la transacción', error);
-
-      await this.prisma.actionLog.update({
-        where: { id: log.id },
-        data: {
-          action_type: 'TRANSACTION_CREATE',
-          id_user: userId,
-          status: 'ERROR',
-          target_table: 'TRANSACTIONS',
-          message: (error as Error).message ?? 'Error no especificado',
-        },
-      });
+      await this.actionLogsService.markError(log.id, error as Error);
       throw new InternalServerErrorException('Error al crear la transacción');
     }
   }
 
   async createFamilyTransaction(
     data: Omit<CreateTransactionDTO, 'direction' | 'category' | 'concept'>,
-    req: Request,
+    actorId: string,
   ) {
     const family = await this.prisma.family.findUnique({
       where: { id: data.id_family },
@@ -102,7 +78,7 @@ export class TransactionsService {
         concept: `Cuota familiar - ${new Date().toLocaleDateString()}`,
         description: `Cuota mensual de la familia con ID ${data.id_family}`,
       };
-      const transaction = await this.create(newTransactionPayload, req);
+      const transaction = await this.create(newTransactionPayload, actorId);
       // Actualizamos el balance de la familia
       const balance = await this.prisma.balance.findUnique({
         where: { id: family.id_balance },
@@ -126,11 +102,9 @@ export class TransactionsService {
     }
   }
 
-  async findAll(loggedUser: any) {
+  async findAll(loggedUser: any, actorId?: string) {
     try {
-      const where = this.roleFilterService.apply(loggedUser);
       return await this.prisma.transactions.findMany({
-        where,
         orderBy: { createdAt: 'desc' },
       });
     } catch (error) {
@@ -182,17 +156,15 @@ export class TransactionsService {
       );
     }
   }
-  async update(id: string, data: UpdateTransactionDTO, req: Request) {
-    const { id: userId } = await this.authService.getDataFromToken(req);
+  async update(id: string, data: UpdateTransactionDTO, actorId: string) {
+    const userId = actorId;
 
-    const log = await this.prisma.actionLog.create({
-      data: {
-        action_type: 'TRANSACTION_UPDATE',
-        id_user: userId,
-        status: 'PENDING',
-        target_table: 'TRANSACTIONS',
-      },
-    });
+    const log = await this.actionLogsService.start(
+      ActionType.TRANSACTION_UPDATE,
+      userId,
+      { target_table: ActionTargetTable.TRANSACTIONS, target_id: id },
+    );
+
     try {
       if (!id) throw new BadRequestException('ID es requerido');
       // Verificamos existencia antes de actualizar
@@ -201,35 +173,23 @@ export class TransactionsService {
         where: { id },
         data,
       });
-      await this.prisma.actionLog.update({
-        where: { id: log.id },
-        data: {
-          action_type: 'TRANSACTION_UPDATE',
-          id_user: userId,
-          status: 'SUCCESS',
-          target_table: 'TRANSACTIONS',
-          id_transaction: transactionUpdated.id,
-          target_id: transactionUpdated.id,
-          metadata: {
-            transactionData: {
-              ...transactionUpdated,
-            },
-          },
-        },
+      // convert dates to ISO for JSON metadata
+      const safeTransaction = {
+        ...transactionUpdated,
+        createdAt: transactionUpdated.createdAt.toISOString(),
+        updatedAt: transactionUpdated.updatedAt.toISOString(),
+        payment_date: transactionUpdated.payment_date.toISOString(),
+      } as const;
+
+      await this.actionLogsService.markSuccess(log.id, undefined, {
+        id_transaction: transactionUpdated.id,
+        target_id: transactionUpdated.id,
+        transactionData: safeTransaction,
       });
 
       return transactionUpdated;
     } catch (error) {
-      await this.prisma.actionLog.update({
-        where: { id: log.id },
-        data: {
-          action_type: 'TRANSACTION_UPDATE',
-          id_user: userId,
-          status: 'ERROR',
-          target_table: 'TRANSACTIONS',
-          message: (error as Error).message ?? 'Error no especificado',
-        },
-      });
+      await this.actionLogsService.markError(log.id, error as Error);
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
@@ -243,17 +203,15 @@ export class TransactionsService {
     }
   }
 
-  async remove(id: string, req: Request) {
-    const { id: userId } = await this.authService.getDataFromToken(req);
+  async remove(id: string, actorId: string) {
+    const userId = actorId;
 
-    const log = await this.prisma.actionLog.create({
-      data: {
-        action_type: 'TRANSACTION_DELETE',
-        id_user: userId,
-        status: 'PENDING',
-        target_table: 'TRANSACTIONS',
-      },
-    });
+    const log = await this.actionLogsService.start(
+      ActionType.TRANSACTION_DELETE,
+      userId,
+      { target_table: ActionTargetTable.TRANSACTIONS, target_id: id },
+    );
+
     try {
       if (!id) throw new BadRequestException('ID es requerido');
       // Verificamos existencia antes de eliminar
@@ -263,33 +221,26 @@ export class TransactionsService {
         where: { id },
       });
 
-      await this.prisma.actionLog.update({
-        where: { id: log.id },
-        data: {
-          action_type: 'TRANSACTION_DELETE',
-          id_user: userId,
-          status: 'SUCCESS',
-          target_table: 'TRANSACTIONS',
-          metadata: {
-            transactionDeleted: {
-              ...transaction,
-            },
-          },
-        },
+      const safeTransaction = {
+        ...transaction,
+        createdAt: (transaction as any).createdAt
+          ? (transaction as any).createdAt.toISOString()
+          : null,
+        updatedAt: (transaction as any).updatedAt
+          ? (transaction as any).updatedAt.toISOString()
+          : null,
+        payment_date: (transaction as any).payment_date
+          ? (transaction as any).payment_date.toISOString()
+          : null,
+      };
+
+      await this.actionLogsService.markSuccess(log.id, undefined, {
+        transactionDeleted: safeTransaction,
       });
 
       return 'transaccion elimnada!';
     } catch (error) {
-      await this.prisma.actionLog.update({
-        where: { id: log.id },
-        data: {
-          action_type: 'TRANSACTION_DELETE',
-          id_user: userId,
-          status: 'ERROR',
-          target_table: 'TRANSACTIONS',
-          message: (error as Error).message ?? 'Error no especificado',
-        },
-      });
+      await this.actionLogsService.markError(log.id, error as Error);
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
@@ -302,7 +253,13 @@ export class TransactionsService {
       );
     }
   }
-  async bulkCreate(transactions: CreateTransactionDTO[]) {
+  async bulkCreate(transactions: CreateTransactionDTO[], actorId?: string) {
+    const userId = actorId;
+    const log = await this.actionLogsService.start(ActionType.TRANSACTION_CREATE, userId ?? 'system', {
+      target_table: ActionTargetTable.TRANSACTIONS,
+      metadata: { action: 'bulk_create_transactions' },
+    });
+
     try {
       // Transformamos fechas y validamos mínimamente
       const data = transactions.map((tx) => ({
@@ -321,23 +278,26 @@ export class TransactionsService {
         skipDuplicates: true, // Evita error si hay UUIDs duplicados
       });
 
+      await this.actionLogsService.markSuccess(log.id, `Carga masiva completada (${result.count})`, {
+        createdCount: result.count,
+      });
+
       return {
         message: `${result.count} transacciones creadas exitosamente`,
         count: result.count,
       };
     } catch (error) {
+      await this.actionLogsService.markError(log.id, error as Error);
       console.log('Error al crear transacciones masivas', error);
       throw new InternalServerErrorException(
         'Error al crear transacciones en bloque',
       );
     }
   }
-  async getMonthlyStats(loggedUser: any) {
+  async getMonthlyStats(loggedUser: any, actorId?: string) {
     try {
       // Traemos todas las transacciones con fecha y dirección
-      const where = this.roleFilterService.apply(loggedUser);
       const transactions = await this.prisma.transactions.findMany({
-        where,
         select: {
           amount: true,
           payment_date: true,
@@ -406,8 +366,8 @@ export class TransactionsService {
     }
   }
 
-  async bulkCommunityTransactions(transactions: CreateTransactionDTO[], req: Request) {
-  const { id: userId } = await this.authService.getDataFromToken(req);
+  async bulkCommunityTransactions(transactions: CreateTransactionDTO[], actorId: string) {
+  const userId = actorId;
 
   const valid: CreateTransactionDTO[] = [];
   const ignoredByCategory: any[] = [];
@@ -444,20 +404,15 @@ export class TransactionsService {
       })),
       skipDuplicates: true,
     });
-
-    await this.prisma.actionLog.create({
-      data: {
-        action_type: 'TRANSACTION_CREATE',
-        id_user: userId,
-        status: 'SUCCESS',
-        target_table: 'TRANSACTIONS',
-        message: `Carga masiva comunitaria (${result.count} creadas, ${ignoredByCategory.length} ignoradas por CUOTA)`,
-        metadata: {
-          createdCount: result.count,
-          ignoredByCategory,
-        },
-      },
+    const log = await this.actionLogsService.start(ActionType.TRANSACTION_CREATE, userId, {
+      target_table: ActionTargetTable.TRANSACTIONS,
     });
+
+    await this.actionLogsService.markSuccess(
+      log.id,
+      `Carga masiva comunitaria (${result.count} creadas, ${ignoredByCategory.length} ignoradas por CUOTA)`,
+      { createdCount: result.count, ignoredByCategory },
+    );
 
     return {
       message: 'Carga masiva completada exitosamente',
@@ -465,18 +420,10 @@ export class TransactionsService {
       ignoredByCategory: ignoredByCategory.length,
     };
   } catch (error) {
-    await this.prisma.actionLog.create({
-      data: {
-        action_type: 'TRANSACTION_CREATE',
-        id_user: userId,
-        status: 'ERROR',
-        target_table: 'TRANSACTIONS',
-        message: (error as Error).message ?? 'Error no especificado',
-        metadata: {
-          ignoredByCategory,
-        },
-      },
+    const log = await this.actionLogsService.start(ActionType.TRANSACTION_CREATE, userId, {
+      target_table: ActionTargetTable.TRANSACTIONS,
     });
+    await this.actionLogsService.markError(log.id, error as Error);
 
     throw new InternalServerErrorException('No se pudieron crear las transacciones');
   }

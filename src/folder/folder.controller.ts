@@ -14,35 +14,35 @@ export class FolderController {
   @Roles('MASTER', 'DIRIGENTE')
   @HttpCode(HttpStatus.OK)
   async getAllFolders(@Request() req: any) {
-    return await this.folderService.getAllFolder(req.user);
+    return await this.folderService.getAllFolder(req.user, req.user?.id);
   }
 
   @Get(':id')
   @Roles('MASTER', 'DIRIGENTE')
   @HttpCode(HttpStatus.OK)
   async getFolderById(@Param('id') id: string, @Request() req: any) {
-    return await this.folderService.getById(id, req.user);
+    return await this.folderService.getById(id, req.user, req.user?.id);
   }
 
   @Post()
   @Roles('MASTER', 'DIRIGENTE')
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body() body: CreateFolderDTO) {
-    return await this.folderService.create(body);
+  async create(@Body() body: CreateFolderDTO, @Request() req: any) {
+    return await this.folderService.create(body, req.user?.id);
   }
 
   @Patch(':id')
   @Roles('MASTER', 'DIRIGENTE')
   @HttpCode(HttpStatus.OK)
   async update(@Param('id') id: string, @Body() body: UpdateFolderDTO, @Request() req: any) {
-    return await this.folderService.update(id, body, req.user);
+    return await this.folderService.update(id, body, req.user, req.user?.id);
   }
 
   @Delete(':id')
   @Roles('MASTER', 'DIRIGENTE')
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Param('id') id: string, @Request() req: any) {
-    await this.folderService.delete(id, req.user);
+    await this.folderService.delete(id, req.user, req.user?.id);
     return;
   }
 }

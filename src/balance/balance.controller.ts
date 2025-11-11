@@ -16,7 +16,7 @@ import { CreateBalanceDTO, UpdateBalanceDTO } from './dto/balance.dto';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
-import { Request as ExpressRequest } from 'express';
+// using Nest's @Request() typing (any) for controller handlers
 @UseGuards(AuthGuard, RolesGuard)
 @Controller('balance')
 export class BalanceController {
@@ -26,21 +26,21 @@ export class BalanceController {
   @Roles('MASTER', 'DIRIGENTE')
   @HttpCode(HttpStatus.OK)
   async getAllBalances(@Request() req: any) {
-    return await this.balanceService.getAllBalances(req.user);
+    return await this.balanceService.getAllBalances(req.user, req.user?.id);
   }
 
   @Get(':id')
   @Roles('MASTER', 'DIRIGENTE', 'FAMILY', 'BENEFICIARIO')
   @HttpCode(HttpStatus.OK)
   async getBalanceById(@Param('id') id: string, @Request() req: any) {
-    return await this.balanceService.getById(id, req.user);
+    return await this.balanceService.getById(id, req.user, req.user?.id);
   }
 
   @Post()
   @Roles('MASTER')
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body() body: CreateBalanceDTO) {
-    return await this.balanceService.create(body);
+  async create(@Body() body: CreateBalanceDTO, @Request() req: any) {
+    return await this.balanceService.create(body, req.user?.id);
   }
 
   @Patch(':id')
@@ -51,13 +51,13 @@ export class BalanceController {
     @Body() body: UpdateBalanceDTO,
     @Request() req: any,
   ) {
-    return await this.balanceService.update(id, body, req.user);
+    return await this.balanceService.update(id, body, req.user, req.user?.id);
   }
   @Post('/reset-all')
   @Roles('MASTER')
   @HttpCode(HttpStatus.OK)
-  async ResetAll() {
-    return await this.balanceService.resetAll();
+  async ResetAll(@Request() req: any) {
+    return await this.balanceService.resetAll(req.user?.id);
   }
   @Post('/update-family/:id')
   @Roles('MASTER')
@@ -68,7 +68,7 @@ export class BalanceController {
   @Post('/update-all')
   @Roles('MASTER')
   @HttpCode(HttpStatus.OK)
-  async UpdateAll(@Request() req: ExpressRequest) {
+  async UpdateAll(@Request() req: any) {
     return await this.balanceService.updateAll(req);
   }
 
@@ -76,7 +76,7 @@ export class BalanceController {
   @Roles('MASTER')
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Param('id') id: string, @Request() req: any) {
-    await this.balanceService.delete(id, req.user);
+    await this.balanceService.delete(id, req.user, req.user?.id);
     return;
   }
 }

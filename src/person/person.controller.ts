@@ -28,30 +28,30 @@ export class PersonController {
   @Get()
   @Roles('MASTER', 'DIRIGENTE')
   async getAllPersons(@Request() req: any) {
-    return await this.personService.getAllPersons(req.user);
+  return await this.personService.getAllPersons(req.user, req.user?.id);
   }
 
   @Get(':id')
   @Roles('MASTER', 'DIRIGENTE')
   async getPersonById(@Param('id') id: string, @Request() req: any) {
-    return await this.personService.getById(id, req.user);
+  return await this.personService.getById(id, req.user, req.user?.id);
   }
 
   @Post()
   @Roles('MASTER', 'DIRIGENTE')
-  async createPerson(@Body() body: CreatePersonDTO) {
-    return await this.personService.create(body);
+  async createPerson(@Body() body: CreatePersonDTO, @Request() req: any) {
+  return await this.personService.create(body, req.user, req.user?.id);
   }
 
   @Patch(':id')
   @Roles('MASTER', 'DIRIGENTE')
   async updatePerson(@Param('id') id: string, @Body() body: UpdatePersonDTO, @Request() req: any) {
     try {
-      const existingPerson = await this.personService.getById(id, req.user);
+  const existingPerson = await this.personService.getById(id, req.user, req.user?.id);
       if (!existingPerson) {
         throw new NotFoundException('Persona no encontrada');
       }
-      return await this.personService.update(id, body, req.user);
+  return await this.personService.update(id, body, req.user, req.user?.id);
     } catch (error) {
       throw error;
     }
@@ -61,11 +61,11 @@ export class PersonController {
   @Roles('MASTER', 'DIRIGENTE')
   async deletePerson(@Param('id') id: string, @Request() req: any) {
     try {
-      const existingPerson = await this.personService.getById(id, req.user);
+  const existingPerson = await this.personService.getById(id, req.user, req.user?.id);
       if (!existingPerson) {
         throw new NotFoundException('Persona no encontrada');
       }
-      return await this.personService.delete(id, req.user);
+  return await this.personService.delete(id, req.user, req.user?.id);
     } catch (error) {
       throw error;
     }
@@ -73,7 +73,7 @@ export class PersonController {
 
   @Get('dni/:dni')
   async getPersonByDni(@Param('dni') dni: string, @Request() req: any) {
-    return await this.personService.findByDni(dni, req.user);
+  return await this.personService.findByDni(dni, req.user, req.user?.id);
   }
 
   @Post('bulk')
@@ -106,6 +106,6 @@ export class PersonController {
       }
       emailSet.add(person.email);
     }
-    return await this.personService.bulkCreate({ persons, id_rama }, req.user);
+  return await this.personService.bulkCreate({ persons, id_rama }, req.user, req.user?.id);
   }
 }

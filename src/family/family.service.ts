@@ -10,14 +10,24 @@ import { CreateFamilyDto, UpdateFamilyDto } from './dto/family.dto';
 import { BalanceService } from 'src/balance/balance.service';
 import { Family } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { ActionLogsService } from 'src/action-logs/action-logs.service';
+import { ActionType, ActionTargetTable } from '@prisma/client';
 
 @Injectable()
 export class FamilyService {
   constructor(
     private prisma: PrismaService,
     private balanceService: BalanceService,
+    private actionLogsService: ActionLogsService,
   ) {}
-  public async create(data: CreateFamilyDto): Promise<Family> {
+  public async create(data: CreateFamilyDto, loggedUser?: any, actorId?: string): Promise<Family> {
+    const userActor = (actorId as string) ?? (loggedUser?.id as string);
+    const log = await this.actionLogsService.start(
+      ActionType.FAMILY_CREATE,
+      userActor,
+      { target_table: ActionTargetTable.FAMILY },
+    );
+
     try {
       const newBalance = await this.balanceService.create({
         value: 0,
@@ -26,7 +36,7 @@ export class FamilyService {
         custom_cfa_value: 0,
         is_custom_cuota: false,
         is_custom_cfa: false,
-      });
+      }, userActor);
 
       const balanceId = newBalance.id;
 
@@ -62,7 +72,14 @@ export class FamilyService {
         },
       });
 
-      return familyWithRelations || family;
+      const created = familyWithRelations || family;
+
+      await this.actionLogsService.markSuccess(log.id, undefined, {
+        target_id: created.id,
+        family: { id: created.id, name: created.name, phone: created.phone },
+      });
+
+      return created;
     } catch (error) {
       if (
         error instanceof BadRequestException ||
@@ -71,6 +88,8 @@ export class FamilyService {
         throw error;
       }
       console.error('Error al crear la familia: ', error);
+      await this.actionLogsService.markError(log.id, error as Error);
+
       throw new InternalServerErrorException('Error al crear la familia');
     }
   }
@@ -146,6 +165,19 @@ export class FamilyService {
     }
   }
 
+  public async getFamiliesByRama(id_rama: string) {
+    try {
+      if (!id_rama) {
+        throw new BadRequestException('ID de rama es requerido');
+      }
+      return await this.prisma.family.findMany({
+        where: { manage_by: id_rama }});
+    } catch (error) {
+      console.error('Error al obtener las familias por rama: ', error);
+      throw new InternalServerErrorException('Error al obtener las familias por rama');
+    }
+  }
+
   public async findAll(): Promise<Family[]> {
     try {
       return await this.prisma.family.findMany({
@@ -193,7 +225,14 @@ export class FamilyService {
     }
   }
 
-  public async update(id: string, data: UpdateFamilyDto): Promise<Family> {
+  public async update(id: string, data: UpdateFamilyDto, loggedUser?: any, actorId?: string): Promise<Family> {
+    const userActor = (actorId as string) ?? (loggedUser?.id as string);
+    const log = await this.actionLogsService.start(
+      ActionType.FAMILY_UPDATE,
+      userActor,
+      { target_table: ActionTargetTable.FAMILY, target_id: id },
+    );
+
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
@@ -201,10 +240,14 @@ export class FamilyService {
 
       await this.findOne(id); // asegura que existe
 
-      return await this.prisma.family.update({
-        where: { id },
-        data,
+      const updated = await this.prisma.family.update({ where: { id }, data });
+
+      await this.actionLogsService.markSuccess(log.id, undefined, {
+        target_id: updated.id,
+        family: { id: updated.id, name: updated.name, phone: updated.phone },
       });
+
+      return updated;
     } catch (error) {
       if (
         error instanceof NotFoundException ||
@@ -213,11 +256,19 @@ export class FamilyService {
         throw error;
       }
       console.log('Error al actualizar la familia: ', error);
+      await this.actionLogsService.markError(log.id, error as Error);
       throw new InternalServerErrorException('Error al actualizar la familia');
     }
   }
 
-  public async remove(id: string): Promise<Family> {
+  public async remove(id: string, loggedUser?: any, actorId?: string): Promise<Family> {
+    const userActor = (actorId as string) ?? (loggedUser?.id as string);
+    const log = await this.actionLogsService.start(
+      ActionType.FAMILY_DELETE,
+      userActor,
+      { target_table: ActionTargetTable.FAMILY, target_id: id },
+    );
+
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
@@ -225,9 +276,13 @@ export class FamilyService {
 
       await this.findOne(id); // asegura que existe
 
-      return await this.prisma.family.delete({
-        where: { id },
+      const deleted = await this.prisma.family.delete({ where: { id } });
+
+      await this.actionLogsService.markSuccess(log.id, undefined, {
+        deleted: { id: deleted.id, name: deleted.name },
       });
+
+      return deleted;
     } catch (error) {
       if (
         error instanceof NotFoundException ||
@@ -236,6 +291,7 @@ export class FamilyService {
         throw error;
       }
       console.log('Error al eliminar la familia: ', error);
+      await this.actionLogsService.markError(log.id, error as Error);
       throw new InternalServerErrorException('Error al eliminar la familia');
     }
   }

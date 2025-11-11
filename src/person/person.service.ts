@@ -11,11 +11,17 @@ import { UpdatePersonDTO } from './dto/update-person.dto';
 import { removeUndefined } from '../utils/remove-undefined.util';
 import * as bcrypt from 'bcrypt';
 import { RoleFilterService } from 'src/services/RoleFilter.service';
+import { ActionLogsService } from 'src/action-logs/action-logs.service';
+import { ActionType, ActionTargetTable } from '@prisma/client';
 @Injectable()
 export class PersonService {
-  constructor(private prisma: PrismaService, private roleFilterService: RoleFilterService) {}
+  constructor(
+    private prisma: PrismaService,
+    private roleFilterService: RoleFilterService,
+    private actionLogsService: ActionLogsService,
+  ) {}
 
-  async getAllPersons(loggedUser : any): Promise<Person[]> {
+  async getAllPersons(loggedUser : any, actorId?: string): Promise<Person[]> {
     try {
       const where = this.roleFilterService.apply(loggedUser);
       return this.prisma.person.findMany({
@@ -27,7 +33,7 @@ export class PersonService {
     }
   }
 
-  async getById(id: string, loggedUser: any): Promise<Person | null> {
+  async getById(id: string, loggedUser: any, actorId?: string): Promise<Person | null> {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
@@ -43,51 +49,98 @@ export class PersonService {
     
   }
 
-  async create(data: CreatePersonDTO): Promise<Person> {
-    try {    
-      return this.prisma.person.create({
-      data,
-    });
+  async create(data: CreatePersonDTO, loggedUser?: any, actorId?: string): Promise<Person> {
+    const userId = (actorId as string) ?? (loggedUser?.id as string);
+    const log = await this.actionLogsService.start(
+      ActionType.PERSON_CREATE,
+      userId,
+      { target_table: ActionTargetTable.USER },
+    );
+
+    try {
+      const created = await this.prisma.person.create({ data });
+      await this.actionLogsService.markSuccess(log.id, undefined, {
+        target_id: created.id,
+        person: {
+          id: created.id,
+          name: created.name,
+          last_name: created.last_name,
+          email: created.email,
+          dni: created.dni,
+        },
+      });
+      return created;
     } catch (error) {
       console.log('Error al crear la persona:', error);
+      await this.actionLogsService.markError(log.id, error as Error);
       throw new InternalServerErrorException('Error al crear la persona');
     }
   }
 
-  async update(id: string, data: UpdatePersonDTO, loggedUser: any): Promise<Person> {
+  async update(id: string, data: UpdatePersonDTO, loggedUser: any, actorId?: string): Promise<Person> {
+    const userId = (actorId as string) ?? (loggedUser?.id as string);
+    const log = await this.actionLogsService.start(
+      ActionType.PERSON_UPDATE,
+      userId,
+      { target_table: ActionTargetTable.USER, target_id: id },
+    );
+
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
       const where = this.roleFilterService.apply(loggedUser);
       const cleanData = removeUndefined(data);
-      return this.prisma.person.update({
-        where,
-        data: cleanData,
+      const updated = await this.prisma.person.update({ where, data: cleanData });
+
+      await this.actionLogsService.markSuccess(log.id, undefined, {
+        target_id: updated.id,
+        person: {
+          id: updated.id,
+          name: updated.name,
+          last_name: updated.last_name,
+          email: updated.email,
+          dni: updated.dni,
+        },
       });
+
+      return updated;
     } catch (error) {
       console.log('Error al actualizar la persona:', error);
+      await this.actionLogsService.markError(log.id, error as Error);
       throw new InternalServerErrorException('Error al actualizar la persona');
     }
     
   }
 
-  async delete(id: string, loggedUser: any): Promise<Person> {
+  async delete(id: string, loggedUser: any, actorId?: string): Promise<Person> {
+    const userId = (actorId as string) ?? (loggedUser?.id as string);
+    const log = await this.actionLogsService.start(
+      ActionType.PERSON_DELETE,
+      userId,
+      { target_table: ActionTargetTable.USER, target_id: id },
+    );
+
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
       const where = this.roleFilterService.apply(loggedUser);
-      return this.prisma.person.delete({
-        where,
+      const deleted = await this.prisma.person.delete({ where });
+
+      await this.actionLogsService.markSuccess(log.id, undefined, {
+        deleted: { id: deleted.id, name: deleted.name, email: deleted.email },
       });
+
+      return deleted;
     } catch (error) {
       console.log('Error al eliminar la persona:', error);
+      await this.actionLogsService.markError(log.id, error as Error);
       throw new InternalServerErrorException('Error al eliminar la persona');
     }
   }
 
-  async findByDni(dni: string, loggedUser: any): Promise<Person | null> {
+  async findByDni(dni: string, loggedUser: any, actorId?: string): Promise<Person | null> {
     try {
       if (!dni) {
       throw new BadRequestException('DNI es requerido');
@@ -103,9 +156,16 @@ export class PersonService {
   async bulkCreate(data: {
     persons: CreatePersonDTO[];
     id_rama?: string;
-  }, loggedUser: any): Promise<Person[]> {
+  }, loggedUser: any, actorId?: string): Promise<Person[]> {
     const { persons, id_rama } = data;
     const where = this.roleFilterService.apply(loggedUser);
+    const userId = (actorId as string) ?? (loggedUser?.id as string);
+    const log = await this.actionLogsService.start(
+      ActionType.PERSON_CREATE,
+      userId,
+      { target_table: ActionTargetTable.USER },
+    );
+
     try {
       if (id_rama) {
         const existRama = await this.prisma.rama.findFirst({
@@ -145,12 +205,19 @@ export class PersonService {
       );
 
       // Devolvemos las personas creadas con relaciones
-      return this.prisma.person.findMany({
+      const found = await this.prisma.person.findMany({
         where: {
           id: { in: createdPersons.map((p) => p.id) },
         },
       });
+
+      await this.actionLogsService.markSuccess(log.id, undefined, {
+        createdCount: found.length,
+      });
+
+      return found;
     } catch (error) {
+      await this.actionLogsService.markError(log.id, error as Error);
       console.log('error at persons bulk create', error);
       throw new InternalServerErrorException(
         `Error in persons bulkCreate: ${error instanceof Error ? error.message : String(error)

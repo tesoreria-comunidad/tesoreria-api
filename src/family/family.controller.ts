@@ -9,6 +9,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Request,
 } from '@nestjs/common';
 import { FamilyService } from './family.service';
 import { CreateFamilyDto, UpdateFamilyDto } from './dto/family.dto';
@@ -24,14 +25,19 @@ export class FamilyController {
   @Post()
   @Roles('MASTER', 'DIRIGENTE')
   @HttpCode(HttpStatus.CREATED)
-  create(@Body() createFamilyDto: CreateFamilyDto) {
-    return this.familyService.create(createFamilyDto);
+  create(@Body() createFamilyDto: CreateFamilyDto, @Request() req: any) {
+  return this.familyService.create(createFamilyDto, req.user, req.user?.id);
   }
 
   @Get()
   @HttpCode(HttpStatus.OK)
   findAll() {
     return this.familyService.findAll();
+  }
+
+  @Get('/by-rama/:id_rama')
+  getUsersByFamily(@Param("id_rama") id_rama: string) {
+    return this.familyService.getFamiliesByRama(id_rama);
   }
 
   @Get(':id')
@@ -44,14 +50,14 @@ export class FamilyController {
   @Patch(':id')
   @Roles('MASTER', 'DIRIGENTE')
   @HttpCode(HttpStatus.OK)
-  update(@Param('id') id: string, @Body() updateFamilyDto: UpdateFamilyDto) {
-    return this.familyService.update(id, updateFamilyDto);
+  update(@Param('id') id: string, @Body() updateFamilyDto: UpdateFamilyDto, @Request() req: any) {
+  return this.familyService.update(id, updateFamilyDto, req.user, req.user?.id);
   }
 
   @Delete(':id')
   @Roles('MASTER')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param('id') id: string) {
-    return this.familyService.remove(id);
+  remove(@Param('id') id: string, @Request() req: any) {
+  return this.familyService.remove(id, req.user, req.user?.id);
   }
 }

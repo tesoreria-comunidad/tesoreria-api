@@ -13,6 +13,8 @@ import {
 } from './dto/user.dto';
 import { removeUndefined } from 'src/utils/remove-undefined.util';
 import { PrismaService } from 'src/prisma.service';
+import { ActionLogsService } from 'src/action-logs/action-logs.service';
+import { ActionType, ActionTargetTable } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { RoleFilterService } from 'src/services/RoleFilter.service';
 
@@ -21,9 +23,10 @@ export class UserService {
   constructor(
     private prisma: PrismaService,
     private roleFilterService: RoleFilterService,
+    private actionLogsService: ActionLogsService,
   ) {}
 
-  public async getAllUser(loggedUser: any) {
+  public async getAllUser(loggedUser: any, actorId?: string) {
     try {
       const where = this.roleFilterService.apply(loggedUser);
       return await this.prisma.user.findMany({
@@ -40,7 +43,20 @@ export class UserService {
     }
   }
 
-  public async getById(id: string, loggedUser: any) {
+  public async getUsersByRama(id_rama: string) {
+    try {
+      if (!id_rama) throw new BadRequestException('ID de rama es requerido');
+      return await this.prisma.user.findMany({
+        where: { id_rama },
+        orderBy: { name: 'asc' },
+      });
+    } catch (error) {
+      console.log('Error al obtener usuarios por rama', error);
+      throw new InternalServerErrorException('Error al obtener usuarios por rama');
+    }
+  }
+
+  public async getById(id: string, loggedUser: any, actorId?: string) {
     try {
       if (!id) throw new BadRequestException('ID es requerido');
       const where = this.roleFilterService.apply(loggedUser, { id });
@@ -62,7 +78,13 @@ export class UserService {
     }
   }
 
-  public async create(data: CreateUserDTO) {
+  public async create(data: CreateUserDTO, actorId: string) {
+    const log = await this.actionLogsService.start(
+      ActionType.USER_CREATE,
+      actorId,
+      { target_table: ActionTargetTable.USER },
+    );
+
     try {
       // Verificar si ya existe un usuario con el mismo username
       const existingUserByUsername = await this.prisma.user.findFirst({
@@ -153,7 +175,7 @@ export class UserService {
         id_family: data.id_family,
       };
 
-      return await this.prisma.user.create({
+      const created = await this.prisma.user.create({
         data: cleanData,
         include: {
           rama: true,
@@ -161,8 +183,22 @@ export class UserService {
           family: true,
         },
       });
+
+      await this.actionLogsService.markSuccess(log.id, undefined, {
+        target_id: created.id,
+        user: {
+          id: created.id,
+          username: created.username,
+          name: created.name,
+          last_name: created.last_name,
+          email: created.email,
+        },
+      });
+
+      return created;
     } catch (error) {
       console.log('Error al crear usuario', error);
+      await this.actionLogsService.markError(log.id, error as Error);
       if (
         error instanceof BadRequestException ||
         error instanceof ConflictException
@@ -189,7 +225,19 @@ export class UserService {
     }
   }
 
-  public async update(id: string, data: UpdateUserDTO, loggedUser: any) {
+  public async update(
+    id: string,
+    data: UpdateUserDTO,
+    loggedUser: any,
+    actorId?: string,
+  ) {
+    const userId = (actorId as string) ?? (loggedUser?.id as string);
+    const log = await this.actionLogsService.start(
+      ActionType.USER_UPDATE,
+      userId,
+      { target_table: ActionTargetTable.USER, target_id: id },
+    );
+
     try {
       if (!id) throw new BadRequestException('ID es requerido');
 
@@ -283,7 +331,7 @@ export class UserService {
         );
       }
 
-      return await this.prisma.user.update({
+      const updated = await this.prisma.user.update({
         where: { id },
         data: cleanData,
         include: {
@@ -292,8 +340,29 @@ export class UserService {
           family: true,
         },
       });
+
+      const safeUser = {
+        id: updated.id,
+        username: updated.username,
+        name: updated.name,
+        last_name: updated.last_name,
+        email: updated.email,
+        id_family: updated.id_family ?? null,
+        id_rama: updated.id_rama ?? null,
+        id_folder: updated.id_folder ?? null,
+        role: updated.role ?? null,
+        family_role: updated.family_role ?? null,
+      };
+
+      await this.actionLogsService.markSuccess(log.id, undefined, {
+        target_id: updated.id,
+        user: safeUser,
+      });
+
+      return updated;
     } catch (error) {
       console.log('Error al actualizar usuario', error);
+      await this.actionLogsService.markError(log.id, error as Error);
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException ||
@@ -305,13 +374,34 @@ export class UserService {
     }
   }
 
-  public async delete(id: string, loggedUser: any) {
+  public async delete(id: string, loggedUser: any, actorId?: string) {
+    const userId = (actorId as string) ?? (loggedUser?.id as string);
+    const log = await this.actionLogsService.start(
+      ActionType.USER_DELETE,
+      userId,
+      { target_table: ActionTargetTable.USER, target_id: id },
+    );
+
     try {
       if (!id) throw new BadRequestException('ID es requerido');
       await this.getById(id, loggedUser);
-      return await this.prisma.user.delete({ where: { id } });
+
+      const deleted = await this.prisma.user.delete({ where: { id } });
+
+      await this.actionLogsService.markSuccess(log.id, undefined, {
+        deletedUser: {
+          id: deleted.id,
+          username: deleted.username,
+          name: deleted.name,
+          last_name: deleted.last_name,
+          email: deleted.email,
+        },
+      });
+
+      return deleted;
     } catch (error) {
       console.log('Error al eliminar usuario', error);
+      await this.actionLogsService.markError(log.id, error as Error);
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
@@ -325,7 +415,15 @@ export class UserService {
     users: BulkCreateUserDTO[],
     id_rama: string,
     loggedUser: any,
+    actorId?: string,
   ) {
+    const userId = (actorId as string) ?? (loggedUser?.id as string);
+    const log = await this.actionLogsService.start(
+      ActionType.USER_CREATE,
+      userId,
+      { target_table: ActionTargetTable.USER },
+    );
+
     try {
       // Si no es MASTER o DIRIGENTE, se bloquea la creacion
       if (loggedUser.role === 'BENEFICIARIO') {
@@ -461,11 +559,22 @@ export class UserService {
         }),
       );
 
-      return await this.prisma.user.createMany({
+      const result = await this.prisma.user.createMany({
         data: usersWithHashedPasswords,
         skipDuplicates: true,
       });
+
+      await this.actionLogsService.markSuccess(
+        log.id,
+        `${result.count} usuarios creados en lote`,
+        {
+          createdCount: result.count,
+        },
+      );
+
+      return result;
     } catch (error) {
+      await this.actionLogsService.markError(log.id, error as Error);
       if (
         error instanceof BadRequestException ||
         error instanceof ConflictException
@@ -560,7 +669,11 @@ export class UserService {
       console.error('Error creating family:', error);
     }
   }
-  public async getUsersByFamily(familyId: string, loggedUser: any) {
+  public async getUsersByFamily(
+    familyId: string,
+    loggedUser: any,
+    actorId?: string,
+  ) {
     try {
       if (!familyId)
         throw new BadRequestException('ID de familia es requerido');
@@ -585,7 +698,11 @@ export class UserService {
     }
   }
 
-  public async getFamilyAdmin(familyId: string, loggedUser: any) {
+  public async getFamilyAdmin(
+    familyId: string,
+    loggedUser: any,
+    actorId?: string,
+  ) {
     try {
       const where = this.roleFilterService.apply(loggedUser, {
         id_family: familyId,
@@ -605,7 +722,11 @@ export class UserService {
     }
   }
 
-  public async getFamilyAdmins(familyId: string, loggedUser: any) {
+  public async getFamilyAdmins(
+    familyId: string,
+    loggedUser: any,
+    actorId?: string,
+  ) {
     try {
       const where = this.roleFilterService.apply(loggedUser, {
         id_family: familyId,
@@ -628,7 +749,19 @@ export class UserService {
     userId: string,
     familyId: string,
     loggedUser: any,
+    actorId?: string,
   ) {
+    const userActor = (actorId as string) ?? (loggedUser?.id as string);
+    const log = await this.actionLogsService.start(
+      ActionType.USER_UPDATE,
+      userActor,
+      {
+        target_table: ActionTargetTable.USER,
+        target_id: userId,
+        id_family: familyId,
+      },
+    );
+
     try {
       if (loggedUser.role === 'BENEFICIARIO') {
         throw new BadRequestException(
@@ -666,7 +799,7 @@ export class UserService {
       }
 
       // Promover usuario a administrador
-      return await this.prisma.user.update({
+      const updated = await this.prisma.user.update({
         where: { id: userId },
         data: { family_role: 'ADMIN' },
         include: {
@@ -675,8 +808,21 @@ export class UserService {
           family: true,
         },
       });
+
+      await this.actionLogsService.markSuccess(log.id, undefined, {
+        target_id: updated.id,
+        id_family: familyId,
+        promoted: {
+          id: updated.id,
+          username: updated.username,
+          name: updated.name,
+        },
+      });
+
+      return updated;
     } catch (error) {
       console.log('Error al promover usuario a administrador', error);
+      await this.actionLogsService.markError(log.id, error as Error);
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
@@ -693,7 +839,19 @@ export class UserService {
     userId: string,
     familyId: string,
     loggedUser: any,
+    actorId?: string,
   ) {
+    const userActor = (actorId as string) ?? (loggedUser?.id as string);
+    const log = await this.actionLogsService.start(
+      ActionType.USER_UPDATE,
+      userActor,
+      {
+        target_table: ActionTargetTable.USER,
+        target_id: userId,
+        id_family: familyId,
+      },
+    );
+
     try {
       if (loggedUser.role === 'BENEFICIARIO') {
         throw new BadRequestException(
@@ -737,7 +895,7 @@ export class UserService {
       }
 
       // Degradar usuario a miembro regular
-      return await this.prisma.user.update({
+      const updated = await this.prisma.user.update({
         where: { id: userId },
         data: { family_role: 'MEMBER' },
         include: {
@@ -746,8 +904,17 @@ export class UserService {
           family: true,
         },
       });
+
+      await this.actionLogsService.markSuccess(log.id, undefined, {
+        target_id: updated.id,
+        id_family: familyId,
+        demoted: { id: updated.id, username: updated.username },
+      });
+
+      return updated;
     } catch (error) {
       console.log('Error al degradar usuario de administrador', error);
+      await this.actionLogsService.markError(log.id, error as Error);
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException

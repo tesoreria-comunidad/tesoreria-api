@@ -21,7 +21,6 @@ import { BulkCreateTransactionDTO } from './dto/bulk-transaction.dto';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
-import { Request as ExpressRequest } from 'express';
 @UseGuards(AuthGuard, RolesGuard)
 @Controller('transactions')
 export class TransactionsController {
@@ -30,7 +29,7 @@ export class TransactionsController {
   @Get()
   @Roles('MASTER', 'DIRIGENTE')
   async findAll(@Request() req: any) {
-    return this.transactionsService.findAll(req.user);
+    return this.transactionsService.findAll(req.user, req.user?.id);
   }
 
   @Get('/category-list')
@@ -52,11 +51,8 @@ export class TransactionsController {
 
   @Post()
   @Roles('MASTER', 'DIRIGENTE')
-  async create(
-    @Body() dto: CreateTransactionDTO,
-    @Request() req: ExpressRequest,
-  ) {
-    return this.transactionsService.create(dto, req);
+  async create(@Body() dto: CreateTransactionDTO, @Request() req: any) {
+    return this.transactionsService.create(dto, req.user.id);
   }
 
   @Post('/family-cuota')
@@ -64,13 +60,16 @@ export class TransactionsController {
   async createFamilyTransaction(
     @Body()
     dto: Omit<CreateTransactionDTO, 'direction' | 'category' | 'concept'>,
-    @Request() req: ExpressRequest,
+    @Request() req: any,
   ) {
     // This endpoint creates a transaction with direction INCOME, category CUOTA, and concept "Cuota familiar - {fecha actual}", and update the balance of the family"
     if (!dto.id_family) {
       throw new BadRequestException('id_family is required');
     }
-    return await this.transactionsService.createFamilyTransaction(dto, req);
+    return await this.transactionsService.createFamilyTransaction(
+      dto,
+      req.user.id,
+    );
   }
 
   @Patch(':id')
@@ -78,27 +77,24 @@ export class TransactionsController {
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateTransactionDTO,
-    @Request() req: ExpressRequest,
+    @Request() req: any,
   ) {
-    return this.transactionsService.update(id, dto, req);
+    return this.transactionsService.update(id, dto, req.user.id);
   }
 
   @Delete(':id')
   @Roles('MASTER')
-  async remove(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Request() req: ExpressRequest,
-  ) {
-    return this.transactionsService.remove(id, req);
+  async remove(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
+    return this.transactionsService.remove(id, req.user.id);
   }
 
   @Post('bulk')
-  async bulkCreate(@Body() body: BulkCreateTransactionDTO) {
-    return this.transactionsService.bulkCreate(body.transactions);
+  async bulkCreate(@Body() body: BulkCreateTransactionDTO, @Request() req: any) {
+    return this.transactionsService.bulkCreate(body.transactions, req.user?.id);
   }
   @Get('stats/monthly')
   async getMonthlyStats(@Request() req: any) {
-    return this.transactionsService.getMonthlyStats(req.user);
+    return this.transactionsService.getMonthlyStats(req.user, req.user?.id);
   }
 
   @Post('bulk-community')
@@ -106,10 +102,11 @@ export class TransactionsController {
   @UseGuards(AuthGuard, RolesGuard)
   async bulkCommunityTransactions(
     @Body() body: BulkCreateTransactionDTO,
-    @Request() req: ExpressRequest,
+    @Request() req: any,
   ) {
-    return this.transactionsService.bulkCommunityTransactions(body.transactions, req);
+    return this.transactionsService.bulkCommunityTransactions(
+      body.transactions,
+      req.user.id,
+    );
   }
-
-  
 }
