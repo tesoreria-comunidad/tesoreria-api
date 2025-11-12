@@ -171,7 +171,9 @@ export class FamilyService {
         throw new BadRequestException('ID de rama es requerido');
       }
       return await this.prisma.family.findMany({
-        where: { manage_by: id_rama }});
+        where: { manage_by: id_rama },
+        include: { users: true }, // necesario para mostrar a las familias con sus usuarios
+      });  
     } catch (error) {
       console.error('Error al obtener las familias por rama: ', error);
       throw new InternalServerErrorException('Error al obtener las familias por rama');
