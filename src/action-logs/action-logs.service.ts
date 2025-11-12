@@ -3,10 +3,12 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma, ActionType, ActionTargetTable } from '@prisma/client';
 import { PrismaService } from 'src/prisma.service';
 import { CreateLogInput, ListLogsParams } from './types';
+import { Request as ExpressRequest } from 'express';
+import { AuthService } from 'src/auth/auth.service';
 
 @Injectable()
 export class ActionLogsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private authService: AuthService) {}
 
   /** Helper de rango mensual (inicio/fin de mes del date dado) */
   private getMonthRange(date = new Date()) {
@@ -24,7 +26,21 @@ export class ActionLogsService {
   }
 
   /** Crear un log genérico (sin idempotencia) */
-  async create(input: CreateLogInput) {
+  async create(input: CreateLogInput, reqOrActor?: ExpressRequest | string) {
+    // If id_user not provided, attempt to resolve it from the request or actor string
+    if (!input.id_user) {
+      if (typeof reqOrActor === 'string') {
+        input.id_user = reqOrActor;
+      } else if (reqOrActor) {
+        try {
+          const user = await this.authService.getDataFromToken(reqOrActor as any);
+          input.id_user = (user as any)?.id ?? input.id_user;
+        } catch (err) {
+          // ignore resolution errors; create will proceed without id_user or caller may have provided it
+        }
+      }
+    }
+
     return this.prisma.actionLog.create({
       data: {
         action_type: input.action_type,

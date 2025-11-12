@@ -9,7 +9,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
-  Request,
+  Req,
 } from '@nestjs/common';
 import { BalanceService } from './balance.service';
 import { CreateBalanceDTO, UpdateBalanceDTO } from './dto/balance.dto';
@@ -25,22 +25,22 @@ export class BalanceController {
   @Get()
   @Roles('MASTER', 'DIRIGENTE')
   @HttpCode(HttpStatus.OK)
-  async getAllBalances(@Request() req: any) {
-    return await this.balanceService.getAllBalances(req.user, req.user?.id);
+  async getAllBalances(@Req() req: any) {
+    return await this.balanceService.getAllBalances(req);
   }
 
   @Get(':id')
   @Roles('MASTER', 'DIRIGENTE', 'FAMILY', 'BENEFICIARIO')
   @HttpCode(HttpStatus.OK)
-  async getBalanceById(@Param('id') id: string, @Request() req: any) {
-    return await this.balanceService.getById(id, req.user, req.user?.id);
+  async getBalanceById(@Param('id') id: string, @Req() req: any) {
+    return await this.balanceService.getById(id, req);
   }
 
   @Post()
   @Roles('MASTER')
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body() body: CreateBalanceDTO, @Request() req: any) {
-    return await this.balanceService.create(body, req.user?.id);
+  async create(@Body() body: CreateBalanceDTO, @Req() req: any) {
+    return await this.balanceService.create(body, req);
   }
 
   @Patch(':id')
@@ -49,15 +49,15 @@ export class BalanceController {
   async update(
     @Param('id') id: string,
     @Body() body: UpdateBalanceDTO,
-    @Request() req: any,
+    @Req() req: any,
   ) {
-    return await this.balanceService.update(id, body, req.user, req.user?.id);
+    return await this.balanceService.update(id, body, req);
   }
   @Post('/reset-all')
   @Roles('MASTER')
   @HttpCode(HttpStatus.OK)
-  async ResetAll(@Request() req: any) {
-    return await this.balanceService.resetAll(req.user?.id);
+  async ResetAll(@Req() req: any) {
+    return await this.balanceService.resetAll(req);
   }
   @Post('/update-family/:id')
   @Roles('MASTER')
@@ -68,15 +68,15 @@ export class BalanceController {
   @Post('/update-all')
   @Roles('MASTER')
   @HttpCode(HttpStatus.OK)
-  async UpdateAll(@Request() req: any) {
+  async UpdateAll(@Req() req: any) {
     return await this.balanceService.updateAll(req);
   }
 
   @Delete(':id')
   @Roles('MASTER')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async delete(@Param('id') id: string, @Request() req: any) {
-    await this.balanceService.delete(id, req.user, req.user?.id);
+  async delete(@Param('id') id: string, @Req() req: any) {
+    await this.balanceService.delete(id, req);
     return;
   }
 }

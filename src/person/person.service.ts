@@ -13,19 +13,36 @@ import * as bcrypt from 'bcrypt';
 import { RoleFilterService } from 'src/services/RoleFilter.service';
 import { ActionLogsService } from 'src/action-logs/action-logs.service';
 import { ActionType, ActionTargetTable } from '@prisma/client';
+import { Request as ExpressRequest } from 'express';
+import { AuthService } from 'src/auth/auth.service';
 @Injectable()
 export class PersonService {
   constructor(
     private prisma: PrismaService,
     private roleFilterService: RoleFilterService,
     private actionLogsService: ActionLogsService,
+    private authService: AuthService,
   ) {}
 
-  async getAllPersons(loggedUser : any, actorId?: string): Promise<Person[]> {
+  private async resolveActor(reqOrActor?: ExpressRequest | string) {
+    let actorId: string | undefined = undefined;
+    let loggedUser: any = undefined;
+    if (typeof reqOrActor === 'string') {
+      actorId = reqOrActor;
+    } else if (reqOrActor) {
+      const tokenData = await this.authService.getDataFromToken(reqOrActor as ExpressRequest);
+      loggedUser = tokenData;
+      actorId = tokenData?.id;
+    }
+    return { actorId, loggedUser };
+  }
+
+  async getAllPersons(reqOrActor?: ExpressRequest | string): Promise<Person[]> {
+    const { loggedUser } = await this.resolveActor(reqOrActor);
     try {
       const where = this.roleFilterService.apply(loggedUser);
       return this.prisma.person.findMany({
-        where
+        where,
       });
     } catch (error) {
       console.log('Error al obtener las personas:', error);
@@ -33,15 +50,14 @@ export class PersonService {
     }
   }
 
-  async getById(id: string, loggedUser: any, actorId?: string): Promise<Person | null> {
+  async getById(id: string, reqOrActor?: ExpressRequest | string): Promise<Person | null> {
+    const { loggedUser } = await this.resolveActor(reqOrActor);
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
       const where = this.roleFilterService.apply(loggedUser);
-      return this.prisma.person.findUnique({
-        where,
-      });
+      return this.prisma.person.findUnique({ where });
     } catch (error) {
       console.log('Error al obtener la persona:', error);
       throw new InternalServerErrorException('Error al obtener la persona');
@@ -49,7 +65,8 @@ export class PersonService {
     
   }
 
-  async create(data: CreatePersonDTO, loggedUser?: any, actorId?: string): Promise<Person> {
+  async create(data: CreatePersonDTO, reqOrActor?: ExpressRequest | string): Promise<Person> {
+    const { loggedUser, actorId } = await this.resolveActor(reqOrActor);
     const userId = (actorId as string) ?? (loggedUser?.id as string);
     const log = await this.actionLogsService.start(
       ActionType.PERSON_CREATE,
@@ -77,7 +94,8 @@ export class PersonService {
     }
   }
 
-  async update(id: string, data: UpdatePersonDTO, loggedUser: any, actorId?: string): Promise<Person> {
+  async update(id: string, data: UpdatePersonDTO, reqOrActor?: ExpressRequest | string): Promise<Person> {
+    const { loggedUser, actorId } = await this.resolveActor(reqOrActor);
     const userId = (actorId as string) ?? (loggedUser?.id as string);
     const log = await this.actionLogsService.start(
       ActionType.PERSON_UPDATE,
@@ -89,7 +107,7 @@ export class PersonService {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-      const where = this.roleFilterService.apply(loggedUser);
+  const where = this.roleFilterService.apply(loggedUser);
       const cleanData = removeUndefined(data);
       const updated = await this.prisma.person.update({ where, data: cleanData });
 
@@ -113,7 +131,8 @@ export class PersonService {
     
   }
 
-  async delete(id: string, loggedUser: any, actorId?: string): Promise<Person> {
+  async delete(id: string, reqOrActor?: ExpressRequest | string): Promise<Person> {
+    const { loggedUser, actorId } = await this.resolveActor(reqOrActor);
     const userId = (actorId as string) ?? (loggedUser?.id as string);
     const log = await this.actionLogsService.start(
       ActionType.PERSON_DELETE,
@@ -125,8 +144,8 @@ export class PersonService {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-      const where = this.roleFilterService.apply(loggedUser);
-      const deleted = await this.prisma.person.delete({ where });
+  const where = this.roleFilterService.apply(loggedUser);
+  const deleted = await this.prisma.person.delete({ where });
 
       await this.actionLogsService.markSuccess(log.id, undefined, {
         deleted: { id: deleted.id, name: deleted.name, email: deleted.email },
@@ -140,7 +159,8 @@ export class PersonService {
     }
   }
 
-  async findByDni(dni: string, loggedUser: any, actorId?: string): Promise<Person | null> {
+  async findByDni(dni: string, reqOrActor?: ExpressRequest | string): Promise<Person | null> {
+    const { loggedUser } = await this.resolveActor(reqOrActor);
     try {
       if (!dni) {
       throw new BadRequestException('DNI es requerido');
@@ -156,8 +176,9 @@ export class PersonService {
   async bulkCreate(data: {
     persons: CreatePersonDTO[];
     id_rama?: string;
-  }, loggedUser: any, actorId?: string): Promise<Person[]> {
+  }, reqOrActor?: ExpressRequest | string): Promise<Person[]> {
     const { persons, id_rama } = data;
+    const { loggedUser, actorId } = await this.resolveActor(reqOrActor);
     const where = this.roleFilterService.apply(loggedUser);
     const userId = (actorId as string) ?? (loggedUser?.id as string);
     const log = await this.actionLogsService.start(

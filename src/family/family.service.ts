@@ -12,6 +12,8 @@ import { Family } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { ActionLogsService } from 'src/action-logs/action-logs.service';
 import { ActionType, ActionTargetTable } from '@prisma/client';
+import { Request as ExpressRequest } from 'express';
+import { AuthService } from 'src/auth/auth.service';
 
 @Injectable()
 export class FamilyService {
@@ -19,9 +21,35 @@ export class FamilyService {
     private prisma: PrismaService,
     private balanceService: BalanceService,
     private actionLogsService: ActionLogsService,
+    private authService: AuthService,
   ) {}
+  private async resolveActor(reqOrActor?: ExpressRequest | string) {
+    let actorId: string | undefined = undefined;
+    let loggedUser: any = undefined;
+    if (typeof reqOrActor === 'string') {
+      actorId = reqOrActor;
+    } else if (reqOrActor) {
+      const tokenData = await this.authService.getDataFromToken(reqOrActor as ExpressRequest);
+      loggedUser = tokenData;
+      actorId = tokenData?.id;
+    }
+    return { actorId, loggedUser };
+  }
   public async create(data: CreateFamilyDto, loggedUser?: any, actorId?: string): Promise<Family> {
-    const userActor = (actorId as string) ?? (loggedUser?.id as string);
+    // Compatibility handling:
+    // - If controller passed the Express Request (object), resolve actor from it.
+    // - If caller passed a string (actor id) as second parameter, treat it as actorId.
+    if (loggedUser !== undefined && typeof loggedUser === 'object') {
+      const resolved = await this.resolveActor(loggedUser as any);
+      actorId = resolved.actorId ?? actorId;
+      loggedUser = resolved.loggedUser;
+    } else if (loggedUser !== undefined && typeof loggedUser !== 'object') {
+      // caller passed actorId in the second param
+      actorId = loggedUser as string;
+      loggedUser = undefined;
+    }
+
+    const userActor = (actorId as string) ?? (loggedUser?.id as string) ?? 'system';
     const log = await this.actionLogsService.start(
       ActionType.FAMILY_CREATE,
       userActor,
@@ -36,7 +64,7 @@ export class FamilyService {
         custom_cfa_value: 0,
         is_custom_cuota: false,
         is_custom_cfa: false,
-      }, userActor);
+      }, actorId ?? userActor);
 
       const balanceId = newBalance.id;
 
@@ -227,8 +255,9 @@ export class FamilyService {
     }
   }
 
-  public async update(id: string, data: UpdateFamilyDto, loggedUser?: any, actorId?: string): Promise<Family> {
-    const userActor = (actorId as string) ?? (loggedUser?.id as string);
+  public async update(id: string, data: UpdateFamilyDto, reqOrActor?: ExpressRequest | string): Promise<Family> {
+    const { actorId, loggedUser } = await this.resolveActor(reqOrActor as any);
+    const userActor = (actorId as string) ?? (loggedUser?.id as string) ?? 'system';
     const log = await this.actionLogsService.start(
       ActionType.FAMILY_UPDATE,
       userActor,
@@ -240,7 +269,7 @@ export class FamilyService {
         throw new BadRequestException('ID es requerido');
       }
 
-      await this.findOne(id); // asegura que existe
+  await this.findOne(id); // asegura que existe
 
       const updated = await this.prisma.family.update({ where: { id }, data });
 
@@ -263,8 +292,9 @@ export class FamilyService {
     }
   }
 
-  public async remove(id: string, loggedUser?: any, actorId?: string): Promise<Family> {
-    const userActor = (actorId as string) ?? (loggedUser?.id as string);
+  public async remove(id: string, reqOrActor?: ExpressRequest | string): Promise<Family> {
+    const { actorId, loggedUser } = await this.resolveActor(reqOrActor as any);
+    const userActor = (actorId as string) ?? (loggedUser?.id as string) ?? 'system';
     const log = await this.actionLogsService.start(
       ActionType.FAMILY_DELETE,
       userActor,

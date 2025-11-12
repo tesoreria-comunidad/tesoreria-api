@@ -11,6 +11,8 @@ import { RoleFilterService } from 'src/services/RoleFilter.service';
 import { PrismaService } from 'src/prisma.service';
 import { ActionLogsService } from 'src/action-logs/action-logs.service';
 import { ActionTargetTable, ActionType } from '@prisma/client';
+import { Request as ExpressRequest } from 'express';
+import { AuthService } from 'src/auth/auth.service';
 
 @Injectable()
 export class RamaService {
@@ -18,7 +20,20 @@ export class RamaService {
     private prisma: PrismaService,
     private roleFilterService: RoleFilterService,
     private actionLogsService: ActionLogsService,
+    private authService: AuthService,
   ) {}
+  private async resolveActor(reqOrActor?: ExpressRequest | string) {
+    let actorId: string | undefined = undefined;
+    let loggedUser: any = undefined;
+    if (typeof reqOrActor === 'string') {
+      actorId = reqOrActor;
+    } else if (reqOrActor) {
+      const tokenData = await this.authService.getDataFromToken(reqOrActor as ExpressRequest);
+      loggedUser = tokenData;
+      actorId = tokenData?.id;
+    }
+    return { actorId, loggedUser };
+  }
   public async getAllRama() {
     try {
       return await this.prisma.rama.findMany({
@@ -32,7 +47,8 @@ export class RamaService {
     }
   }
 
-  public async getById(id: string, loggedUser: any, actorId?: string) {
+  public async getById(id: string, reqOrActor?: ExpressRequest | string) {
+    const { loggedUser } = await this.resolveActor(reqOrActor);
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
@@ -63,7 +79,8 @@ export class RamaService {
     }
   }
 
-  public async create(data: CreateRamaDTO, actorId?: string) {
+  public async create(data: CreateRamaDTO, reqOrActor?: ExpressRequest | string) {
+    const { actorId } = await this.resolveActor(reqOrActor);
     try {
       if (!data.name || data.name.trim().length === 0) {
         throw new BadRequestException('El nombre de la rama es requerido');
@@ -105,13 +122,14 @@ export class RamaService {
     }
   }
 
-  public async update(id: string, data: UpdateRamaDTO, loggedUser: any, actorId?: string) {
+  public async update(id: string, data: UpdateRamaDTO, reqOrActor?: ExpressRequest | string) {
+    const { loggedUser, actorId } = await this.resolveActor(reqOrActor);
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-      // Verificar que la rama existe
-      await this.getById(id, loggedUser);
+  // Verificar que la rama existe
+  await this.getById(id, reqOrActor);
 
       if (data.name !== undefined) {
         if (!data.name || data.name.trim().length === 0) {
@@ -163,13 +181,14 @@ export class RamaService {
     }
   }
 
-  public async delete(id: string, loggedUser: any, actorId?: string) {
+  public async delete(id: string, reqOrActor?: ExpressRequest | string) {
+    const { loggedUser, actorId } = await this.resolveActor(reqOrActor);
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-      // Verificar que la rama existe
-      const rama = await this.getById(id, loggedUser);
+  // Verificar que la rama existe
+  const rama = await this.getById(id, reqOrActor);
 
       // Verificar si tiene usuarios asociados
       if (rama.users && rama.users.length > 0) {

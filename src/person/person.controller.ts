@@ -10,9 +10,9 @@ import {
   NotFoundException,
   BadRequestException,
   Query,
-  Request,
-  Req
+  Req,
 } from '@nestjs/common';
+import { Request as ExpressRequest } from 'express';
 import { PersonService } from './person.service';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { CreatePersonDTO } from './dto/create-person.dto';
@@ -27,31 +27,31 @@ export class PersonController {
 
   @Get()
   @Roles('MASTER', 'DIRIGENTE')
-  async getAllPersons(@Request() req: any) {
-  return await this.personService.getAllPersons(req.user, req.user?.id);
+  async getAllPersons(@Req() req: ExpressRequest) {
+    return await this.personService.getAllPersons(req);
   }
 
   @Get(':id')
   @Roles('MASTER', 'DIRIGENTE')
-  async getPersonById(@Param('id') id: string, @Request() req: any) {
-  return await this.personService.getById(id, req.user, req.user?.id);
+  async getPersonById(@Param('id') id: string, @Req() req: ExpressRequest) {
+    return await this.personService.getById(id, req);
   }
 
   @Post()
   @Roles('MASTER', 'DIRIGENTE')
-  async createPerson(@Body() body: CreatePersonDTO, @Request() req: any) {
-  return await this.personService.create(body, req.user, req.user?.id);
+  async createPerson(@Body() body: CreatePersonDTO, @Req() req: ExpressRequest) {
+    return await this.personService.create(body, req);
   }
 
   @Patch(':id')
   @Roles('MASTER', 'DIRIGENTE')
-  async updatePerson(@Param('id') id: string, @Body() body: UpdatePersonDTO, @Request() req: any) {
+  async updatePerson(@Param('id') id: string, @Body() body: UpdatePersonDTO, @Req() req: ExpressRequest) {
     try {
-  const existingPerson = await this.personService.getById(id, req.user, req.user?.id);
+      const existingPerson = await this.personService.getById(id, req);
       if (!existingPerson) {
         throw new NotFoundException('Persona no encontrada');
       }
-  return await this.personService.update(id, body, req.user, req.user?.id);
+  return await this.personService.update(id, body, req);
     } catch (error) {
       throw error;
     }
@@ -59,28 +59,28 @@ export class PersonController {
 
   @Delete(':id')
   @Roles('MASTER', 'DIRIGENTE')
-  async deletePerson(@Param('id') id: string, @Request() req: any) {
+  async deletePerson(@Param('id') id: string, @Req() req: ExpressRequest) {
     try {
-  const existingPerson = await this.personService.getById(id, req.user, req.user?.id);
+      const existingPerson = await this.personService.getById(id, req);
       if (!existingPerson) {
         throw new NotFoundException('Persona no encontrada');
       }
-  return await this.personService.delete(id, req.user, req.user?.id);
+  return await this.personService.delete(id, req);
     } catch (error) {
       throw error;
     }
   }
 
   @Get('dni/:dni')
-  async getPersonByDni(@Param('dni') dni: string, @Request() req: any) {
-  return await this.personService.findByDni(dni, req.user, req.user?.id);
+  async getPersonByDni(@Param('dni') dni: string, @Req() req: ExpressRequest) {
+    return await this.personService.findByDni(dni, req);
   }
 
   @Post('bulk')
   async bulkCreatePersons(
     @Body() body: { persons: CreatePersonDTO[] },
     @Query() query: { id_rama?: string },
-    @Request() req: any
+    @Req() req: ExpressRequest,
   ) {
     const { id_rama } = query;
     const { persons } = body;
@@ -106,6 +106,6 @@ export class PersonController {
       }
       emailSet.add(person.email);
     }
-  return await this.personService.bulkCreate({ persons, id_rama }, req.user, req.user?.id);
+  return await this.personService.bulkCreate({ persons, id_rama }, req);
   }
 }

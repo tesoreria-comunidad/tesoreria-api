@@ -10,6 +10,8 @@ import { RoleFilterService } from 'src/services/RoleFilter.service';
 import { PrismaService } from 'src/prisma.service';
 import { ActionLogsService } from 'src/action-logs/action-logs.service';
 import { ActionType, ActionTargetTable } from '@prisma/client';
+import { Request as ExpressRequest } from 'express';
+import { AuthService } from 'src/auth/auth.service';
 
 @Injectable()
 export class FolderService {
@@ -17,8 +19,23 @@ export class FolderService {
     private prisma: PrismaService,
     private roleFilterService: RoleFilterService,
     private actionLogsService: ActionLogsService,
+    private authService: AuthService,
   ) {}
-  public async getAllFolder(loggedUser: any, actorId?: string) {
+  private async resolveActor(reqOrActor?: ExpressRequest | string) {
+    let actorId: string | undefined = undefined;
+    let loggedUser: any = undefined;
+    if (typeof reqOrActor === 'string') {
+      actorId = reqOrActor;
+    } else if (reqOrActor) {
+      const tokenData = await this.authService.getDataFromToken(reqOrActor as ExpressRequest);
+      loggedUser = tokenData;
+      actorId = tokenData?.id;
+    }
+    return { actorId, loggedUser };
+  }
+
+  public async getAllFolder(reqOrActor?: ExpressRequest | string) {
+    const { loggedUser } = await this.resolveActor(reqOrActor);
     try {
       const where = this.roleFilterService.apply(loggedUser);
       return await this.prisma.folder.findMany({
@@ -33,7 +50,8 @@ export class FolderService {
     }
   }
 
-  public async getById(id: string, loggedUser: any, actorId?: string) {
+  public async getById(id: string, reqOrActor?: ExpressRequest | string) {
+    const { loggedUser } = await this.resolveActor(reqOrActor);
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
@@ -63,7 +81,8 @@ export class FolderService {
     }
   }
 
-  public async create(data: CreateFolderDTO, actorId?: string) {
+  public async create(data: CreateFolderDTO, reqOrActor?: ExpressRequest | string) {
+    const { actorId } = await this.resolveActor(reqOrActor);
     try {
       const log = await this.actionLogsService.start(ActionType.FOLDER_CREATE, actorId ?? 'system', {
         target_table: ActionTargetTable.FOLDER,
@@ -83,14 +102,15 @@ export class FolderService {
     }
   }
 
-  public async update(id: string, data: UpdateFolderDTO, loggedUser: any, actorId?: string) {
+  public async update(id: string, data: UpdateFolderDTO, reqOrActor?: ExpressRequest | string) {
+    const { loggedUser, actorId } = await this.resolveActor(reqOrActor);
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
       const where = this.roleFilterService.apply(loggedUser);
       // Verificar que la carpeta existe
-      await this.getById(id, loggedUser);
+      await this.getById(id, reqOrActor);
       const log = await this.actionLogsService.start(ActionType.FOLDER_UPDATE, actorId ?? 'system', {
         target_table: ActionTargetTable.FOLDER,
         target_id: id,
@@ -116,14 +136,15 @@ export class FolderService {
     }
   }
 
-  public async delete(id: string, loggedUser: any, actorId?: string) {
+  public async delete(id: string, reqOrActor?: ExpressRequest | string) {
+    const { loggedUser, actorId } = await this.resolveActor(reqOrActor);
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
       const where = this.roleFilterService.apply(loggedUser);
       // Verificar que la carpeta existe
-      await this.getById(id, loggedUser);
+      await this.getById(id, reqOrActor);
       const log = await this.actionLogsService.start(ActionType.FOLDER_DELETE, actorId ?? 'system', {
         target_table: ActionTargetTable.FOLDER,
         target_id: id,

@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Request } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Req } from '@nestjs/common';
+import { Request as ExpressRequest } from 'express';
 import { CuotaPorHermanosService } from './cuota-por-hermanos.service';
 import { CreateCuotaPorHermanosDto, UpdateCuotaPorHermanosDto } from './dto/cuota-por-hermanos.dto';
 
@@ -7,8 +8,8 @@ export class CuotaPorHermanosController {
   constructor(private readonly service: CuotaPorHermanosService) {}
 
   @Post()
-  create(@Body() dto: CreateCuotaPorHermanosDto, @Request() req: any) {
-    return this.service.create(dto, req.user?.id);
+  create(@Body() dto: CreateCuotaPorHermanosDto, @Req() req: ExpressRequest) {
+    return this.service.create(dto, req);
   }
 
   @Get()
@@ -22,12 +23,12 @@ export class CuotaPorHermanosController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateCuotaPorHermanosDto, @Request() req: any) {
-    return this.service.update(id, dto, req.user?.id);
+  update(@Param('id') id: string, @Body() dto: UpdateCuotaPorHermanosDto, @Req() req: ExpressRequest) {
+    return this.service.update(id, dto, req);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string, @Request() req: any) {
-    return this.service.remove(id, req.user?.id);
+  remove(@Param('id') id: string, @Req() req: ExpressRequest) {
+    return this.service.remove(id, req);
   }
 }

@@ -23,8 +23,25 @@ export class BalanceService {
     private authService: AuthService,
     private actionLogsService: ActionLogsService,
   ) {}
+  private async resolveActor(reqOrActor?: ExpressRequest | string) {
+    let actorId: string | undefined = undefined;
+    let loggedUser: any = undefined;
+    if (typeof reqOrActor === 'string') {
+      actorId = reqOrActor;
+    } else if (reqOrActor) {
+      const tokenData = await this.authService.getDataFromToken(reqOrActor as ExpressRequest);
+      loggedUser = tokenData;
+      actorId = tokenData?.id;
+    }
+    return { actorId, loggedUser };
+  }
   public async getAllBalances(loggedUser: any, actorId?: string) {
     try {
+      // support passing reqOrActor for backward compatibility
+      if (typeof (loggedUser as any) !== 'object' && loggedUser !== undefined) {
+        const { loggedUser: lu } = await this.resolveActor(loggedUser as any);
+        loggedUser = lu;
+      }
       const where = this.roleFilterService.apply(loggedUser);
       return await this.prisma.balance.findMany({
         where,
@@ -38,7 +55,8 @@ export class BalanceService {
     }
   }
 
-  public async getById(id: string, loggedUser: any, actorId?: string) {
+  public async getById(id: string, reqOrActor?: ExpressRequest | string) {
+    const { loggedUser } = await this.resolveActor(reqOrActor as any);
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
@@ -69,7 +87,8 @@ export class BalanceService {
     }
   }
 
-  public async create(data: CreateBalanceDTO, actorId?: string) {
+  public async create(data: CreateBalanceDTO, reqOrActor?: ExpressRequest | string) {
+    const { actorId } = await this.resolveActor(reqOrActor as any);
     try {
       const log = await this.actionLogsService.start(
         ActionType.BALANCE_CREATE,
@@ -99,13 +118,14 @@ export class BalanceService {
     }
   }
 
-  public async update(id: string, data: UpdateBalanceDTO, loggedUser: any, actorId?: string) {
+  public async update(id: string, data: UpdateBalanceDTO, reqOrActor?: ExpressRequest | string) {
     let log: any = null;
+    const { loggedUser, actorId } = await this.resolveActor(reqOrActor as any);
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-      await this.getById(id, loggedUser);
+      await this.getById(id, reqOrActor as any);
 
       // start action log for single balance update
       log = await this.actionLogsService.start(
@@ -144,9 +164,10 @@ export class BalanceService {
       throw new InternalServerErrorException('Error al actualizar el balance');
     }
   }
-  public async resetAll(actorId?: string) {
+  public async resetAll(reqOrActor?: ExpressRequest | string) {
     let log: any = null;
     try {
+      const { actorId } = await this.resolveActor(reqOrActor as any);
       log = await this.actionLogsService.start(
         ActionType.BALANCE_UPDATE,
         actorId ?? 'system',

@@ -9,13 +9,15 @@ import { v4 as uuid } from 'uuid';
 import { ActionLogsService } from 'src/action-logs/action-logs.service';
 import { ActionType } from '@prisma/client';
 // FILE_UPLOAD/FILE_DELETE were added to schema.prisma; now using typed ActionType values.
+import { Request as ExpressRequest } from 'express';
+import { AuthService } from 'src/auth/auth.service';
 
 @Injectable()
 export class FileService {
   private s3: S3Client;
   private bucketName: string;
   //   private readonly s3Client =
-  constructor(private readonly configService: ConfigService, private actionLogsService: ActionLogsService) {
+  constructor(private readonly configService: ConfigService, private actionLogsService: ActionLogsService, private authService: AuthService) {
     this.s3 = new S3Client({
       region: process.env.AWS_REGION,
       credentials: {
@@ -26,7 +28,19 @@ export class FileService {
     this.bucketName = this.configService.get('AWS_BUCKET_NAME')!;
   }
 
-  async upload(file: Express.Multer.File, actorId?: string) {
+  private async resolveActor(reqOrActor?: ExpressRequest | string) {
+    let actorId: string | undefined = undefined;
+    if (typeof reqOrActor === 'string') {
+      actorId = reqOrActor;
+    } else if (reqOrActor) {
+      const tokenData = await this.authService.getDataFromToken(reqOrActor as ExpressRequest);
+      actorId = tokenData?.id;
+    }
+    return actorId;
+  }
+
+  async upload(file: Express.Multer.File, reqOrActor?: ExpressRequest | string) {
+    const actorId = await this.resolveActor(reqOrActor);
     try {
       const fileKey = `${Date.now()}-${uuid()}-${file.originalname}`;
 
@@ -58,7 +72,8 @@ export class FileService {
     }
   }
 
-  async delete(fileName: string, actorId?: string) {
+  async delete(fileName: string, reqOrActor?: ExpressRequest | string) {
+    const actorId = await this.resolveActor(reqOrActor);
     try {
       const log = await this.actionLogsService.start(ActionType.FILE_DELETE, actorId ?? 'system', {
         metadata: { fileName },

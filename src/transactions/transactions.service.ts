@@ -14,6 +14,8 @@ import { log } from 'console';
 import { TransactionDirection } from './constants';
 import { ActionLogsService } from 'src/action-logs/action-logs.service';
 import { ActionType, ActionTargetTable } from '@prisma/client';
+import { Request as ExpressRequest } from 'express';
+import { AuthService } from 'src/auth/auth.service';
 
 @Injectable()
 export class TransactionsService {
@@ -21,11 +23,25 @@ export class TransactionsService {
     private prisma: PrismaService,
     private roleFilterService: RoleFilterService,
     private actionLogsService: ActionLogsService,
+    private authService: AuthService,
   ) {}
-  async create(data: CreateTransactionDTO, actorId: string) {
+  private async resolveActor(reqOrActor?: ExpressRequest | string) {
+    let actorId: string | undefined = undefined;
+    let loggedUser: any = undefined;
+    if (typeof reqOrActor === 'string') {
+      actorId = reqOrActor;
+    } else if (reqOrActor) {
+      const tokenData = await this.authService.getDataFromToken(reqOrActor as ExpressRequest);
+      loggedUser = tokenData;
+      actorId = tokenData?.id;
+    }
+    return { actorId, loggedUser };
+  }
+  async create(data: CreateTransactionDTO, reqOrActor: ExpressRequest | string) {
+    const { actorId } = await this.resolveActor(reqOrActor);
     const log = await this.actionLogsService.start(
       ActionType.TRANSACTION_CREATE,
-      actorId,
+      actorId ?? 'system',
       { target_table: ActionTargetTable.TRANSACTIONS },
     );
 
@@ -58,8 +74,9 @@ export class TransactionsService {
 
   async createFamilyTransaction(
     data: Omit<CreateTransactionDTO, 'direction' | 'category' | 'concept'>,
-    actorId: string,
+    reqOrActor: ExpressRequest | string,
   ) {
+    const { actorId } = await this.resolveActor(reqOrActor);
     const family = await this.prisma.family.findUnique({
       where: { id: data.id_family },
     });
@@ -78,7 +95,7 @@ export class TransactionsService {
         concept: `Cuota familiar - ${new Date().toLocaleDateString()}`,
         description: `Cuota mensual de la familia con ID ${data.id_family}`,
       };
-      const transaction = await this.create(newTransactionPayload, actorId);
+  const transaction = await this.create(newTransactionPayload, actorId ?? 'system');
       // Actualizamos el balance de la familia
       const balance = await this.prisma.balance.findUnique({
         where: { id: family.id_balance },
@@ -102,7 +119,8 @@ export class TransactionsService {
     }
   }
 
-  async findAll(loggedUser: any, actorId?: string) {
+  async findAll(reqOrActor?: ExpressRequest | string) {
+    const { loggedUser } = await this.resolveActor(reqOrActor);
     try {
       return await this.prisma.transactions.findMany({
         orderBy: { createdAt: 'desc' },
@@ -202,12 +220,13 @@ export class TransactionsService {
       );
     }
   }
-  async update(id: string, data: UpdateTransactionDTO, actorId: string) {
+  async update(id: string, data: UpdateTransactionDTO, reqOrActor: ExpressRequest | string) {
+    const { actorId } = await this.resolveActor(reqOrActor);
     const userId = actorId;
 
     const log = await this.actionLogsService.start(
       ActionType.TRANSACTION_UPDATE,
-      userId,
+      userId ?? 'system',
       { target_table: ActionTargetTable.TRANSACTIONS, target_id: id },
     );
 
@@ -249,12 +268,13 @@ export class TransactionsService {
     }
   }
 
-  async remove(id: string, actorId: string) {
+  async remove(id: string, reqOrActor: ExpressRequest | string) {
+    const { actorId } = await this.resolveActor(reqOrActor);
     const userId = actorId;
 
     const log = await this.actionLogsService.start(
       ActionType.TRANSACTION_DELETE,
-      userId,
+      userId ?? 'system',
       { target_table: ActionTargetTable.TRANSACTIONS, target_id: id },
     );
 
@@ -299,7 +319,8 @@ export class TransactionsService {
       );
     }
   }
-  async bulkCreate(transactions: CreateTransactionDTO[], actorId?: string) {
+  async bulkCreate(transactions: CreateTransactionDTO[], reqOrActor?: ExpressRequest | string) {
+    const { actorId } = await this.resolveActor(reqOrActor);
     const userId = actorId;
     const log = await this.actionLogsService.start(ActionType.TRANSACTION_CREATE, userId ?? 'system', {
       target_table: ActionTargetTable.TRANSACTIONS,
@@ -340,7 +361,8 @@ export class TransactionsService {
       );
     }
   }
-  async getMonthlyStats(loggedUser: any, actorId?: string) {
+  async getMonthlyStats(reqOrActor?: ExpressRequest | string) {
+    const { loggedUser } = await this.resolveActor(reqOrActor);
     try {
       // Traemos todas las transacciones con fecha y dirección
       const transactions = await this.prisma.transactions.findMany({
@@ -412,8 +434,9 @@ export class TransactionsService {
     }
   }
 
-  async bulkCommunityTransactions(transactions: CreateTransactionDTO[], actorId: string) {
-  const userId = actorId;
+  async bulkCommunityTransactions(transactions: CreateTransactionDTO[], reqOrActor?: ExpressRequest | string) {
+    const { actorId } = await this.resolveActor(reqOrActor);
+    const userId = actorId;
 
   const valid: CreateTransactionDTO[] = [];
   const ignoredByCategory: any[] = [];
@@ -450,7 +473,7 @@ export class TransactionsService {
       })),
       skipDuplicates: true,
     });
-    const log = await this.actionLogsService.start(ActionType.TRANSACTION_CREATE, userId, {
+    const log = await this.actionLogsService.start(ActionType.TRANSACTION_CREATE, userId ?? 'system', {
       target_table: ActionTargetTable.TRANSACTIONS,
     });
 
@@ -466,7 +489,7 @@ export class TransactionsService {
       ignoredByCategory: ignoredByCategory.length,
     };
   } catch (error) {
-    const log = await this.actionLogsService.start(ActionType.TRANSACTION_CREATE, userId, {
+    const log = await this.actionLogsService.start(ActionType.TRANSACTION_CREATE, userId ?? 'system', {
       target_table: ActionTargetTable.TRANSACTIONS,
     });
     await this.actionLogsService.markError(log.id, error as Error);

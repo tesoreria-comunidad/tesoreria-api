@@ -1,9 +1,10 @@
-import { Body, Controller, Delete, Get, Param, Post, Patch, UseGuards, HttpCode, HttpStatus, Request} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Patch, UseGuards, HttpCode, HttpStatus, Req } from '@nestjs/common';
 import { CuotaService } from './cuota.service';
 import { CreateCuotaDTO, UpdateCuotaDTO } from './dto/cuota.dto';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { Request as ExpressRequest } from 'express';
 
 @UseGuards(AuthGuard, RolesGuard)
 @Controller('cuota')
@@ -12,36 +13,36 @@ export class CuotaController {
 
   @Get()
   @HttpCode(HttpStatus.OK)
-  async getAllCuotas(@Request() req: any) {
-    return await this.cuotaService.getAllCuota(req.user, req.user?.id);
+  async getAllCuotas(@Req() req: ExpressRequest) {
+    return await this.cuotaService.getAllCuota(req);
   }
 
   @Get(':id')
   @Roles('MASTER')
   @HttpCode(HttpStatus.OK)
-  async getCuotaById(@Param('id') id: string, @Request() req: any) {
-    return await this.cuotaService.getById(id, req.user, req.user?.id);
+  async getCuotaById(@Param('id') id: string, @Req() req: ExpressRequest) {
+    return await this.cuotaService.getById(id, req);
   }
 
   @Post()
   @Roles('MASTER')
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body() body: CreateCuotaDTO, @Request() req: any) {
-    return await this.cuotaService.create(body, req.user?.id);
+  async create(@Body() body: CreateCuotaDTO, @Req() req: ExpressRequest) {
+    return await this.cuotaService.create(body, req);
   }
 
   @Patch(':id')
   @Roles('MASTER')
   @HttpCode(HttpStatus.OK)
-  async update(@Param('id') id: string, @Body() body: UpdateCuotaDTO, @Request() req: any) {
-    return await this.cuotaService.update(id, body, req.user, req.user?.id);
+  async update(@Param('id') id: string, @Body() body: UpdateCuotaDTO, @Req() req: ExpressRequest) {
+    return await this.cuotaService.update(id, body, req);
   }
 
   @Delete(':id')
   @Roles('MASTER')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async delete(@Param('id') id: string, @Request() req: any) {
-    await this.cuotaService.delete(id, req.user, req.user?.id);
+  async delete(@Param('id') id: string, @Req() req: ExpressRequest) {
+    await this.cuotaService.delete(id, req);
     return;
   }
 }
