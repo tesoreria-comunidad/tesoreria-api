@@ -138,6 +138,52 @@ export class TransactionsService {
     }
   }
 
+  async getTransactionsByFamily(id_rama: string) {
+    try {
+      if (!id_rama) {
+        throw new BadRequestException('ID de rama es requerido'); 
+      }
+      // usuarios que pertenecen a la rama
+      const users = await this.prisma.user.findMany({
+        where: { id_rama },
+        select: { id_family: true },
+      });
+      // obtenemos los ids de familia unicos asociados a esos usuarios
+      const familyIdsFromUsers = Array.from(
+        new Set(
+          users
+            .map((user) => user.id_family)
+            .filter((family): family is string => !!family),
+        ),
+      );
+
+      if (familyIdsFromUsers.length === 0) {return []};
+      // filtramos a las familias que son manejadas por la rama
+      const families = await this.prisma.family.findMany({
+        where: {
+          id: { in: familyIdsFromUsers },
+          manage_by: id_rama,
+        },
+        select: { id: true },
+      });
+      const familyIds = families.map((family) => family.id);
+      if (familyIds.length === 0) {return []};
+
+      return await this.prisma.transactions.findMany({
+        where: { id_family: { in: familyIds } },
+        orderBy: { payment_date: 'desc' },
+      });
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      console.log('Error al obtener las transacciones por rama', error);
+      throw new InternalServerErrorException(
+        'Error al obtener las transacciones por rama',
+      );
+    }
+  }
+  
   async findByFamilyId(id_family: string) {
     try {
       if (!id_family)
