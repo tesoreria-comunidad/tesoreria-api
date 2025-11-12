@@ -32,8 +32,8 @@ export class UserController {
   @Get()
   @HttpCode(HttpStatus.OK)
   @Roles('MASTER', 'DIRIGENTE')
-  async getAllUsers(@Request() req: any) {
-    return await this.userService.getAllUser(req.user, req.user?.id);
+  async getAllUsers() {
+    return await this.userService.getAllUser();
   }
 
   @Get('/by-rama/:id_rama')
