@@ -92,6 +92,13 @@ export class TransactionsController {
   async bulkCreate(@Body() body: BulkCreateTransactionDTO, @Request() req: any) {
     return this.transactionsService.bulkCreate(body.transactions, req.user?.id);
   }
+
+  @Get('/by-rama/:id_rama')
+  @Roles('MASTER', 'DIRIGENTE')
+  getTransactionsByRama(@Param("id_rama") id_rama: string) {
+    return this.transactionsService.getTransactionsByFamily(id_rama);
+  }
+
   @Get('stats/monthly')
   async getMonthlyStats(@Request() req: any) {
     return this.transactionsService.getMonthlyStats(req.user, req.user?.id);
