@@ -26,11 +26,9 @@ export class UserService {
     private actionLogsService: ActionLogsService,
   ) {}
 
-  public async getAllUser(loggedUser: any, actorId?: string) {
+  public async getAllUser() {
     try {
-      const where = this.roleFilterService.apply(loggedUser);
       return await this.prisma.user.findMany({
-        where,
         include: {
           folder: true,
           rama: true,
@@ -52,7 +50,9 @@ export class UserService {
       });
     } catch (error) {
       console.log('Error al obtener usuarios por rama', error);
-      throw new InternalServerErrorException('Error al obtener usuarios por rama');
+      throw new InternalServerErrorException(
+        'Error al obtener usuarios por rama',
+      );
     }
   }
 
