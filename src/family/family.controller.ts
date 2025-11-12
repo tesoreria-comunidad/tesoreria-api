@@ -36,7 +36,7 @@ export class FamilyController {
   }
 
   @Get('/by-rama/:id_rama')
-  getUsersByFamily(@Param("id_rama") id_rama: string) {
+  getFamiliesByRama(@Param("id_rama") id_rama: string) {
     return this.familyService.getFamiliesByRama(id_rama);
   }
 
