@@ -33,9 +33,7 @@ export class UserService {
   public async getAllUser(reqOrActor?: ExpressRequest | 'SYSTEM') {
   const { loggedUser } = await this.actionLogsService.resolveActor(reqOrActor ?? 'SYSTEM');
     try {
-      const where = this.roleFilterService.apply(loggedUser);
       return await this.prisma.user.findMany({
-        where,
         include: {
           folder: true,
           rama: true,
@@ -57,7 +55,9 @@ export class UserService {
       });
     } catch (error) {
       console.log('Error al obtener usuarios por rama', error);
-      throw new InternalServerErrorException('Error al obtener usuarios por rama');
+      throw new InternalServerErrorException(
+        'Error al obtener usuarios por rama',
+      );
     }
   }
 
