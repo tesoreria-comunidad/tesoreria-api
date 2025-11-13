@@ -12,7 +12,6 @@ import { PrismaService } from 'src/prisma.service';
 import { ActionLogsService } from 'src/action-logs/action-logs.service';
 import { ActionTargetTable, ActionType } from '@prisma/client';
 import { Request as ExpressRequest } from 'express';
-import { AuthService } from 'src/auth/auth.service';
 
 @Injectable()
 export class RamaService {
@@ -20,20 +19,7 @@ export class RamaService {
     private prisma: PrismaService,
     private roleFilterService: RoleFilterService,
     private actionLogsService: ActionLogsService,
-    private authService: AuthService,
   ) {}
-  private async resolveActor(reqOrActor?: ExpressRequest | string) {
-    let actorId: string | undefined = undefined;
-    let loggedUser: any = undefined;
-    if (typeof reqOrActor === 'string') {
-      actorId = reqOrActor;
-    } else if (reqOrActor) {
-      const tokenData = await this.authService.getDataFromToken(reqOrActor as ExpressRequest);
-      loggedUser = tokenData;
-      actorId = tokenData?.id;
-    }
-    return { actorId, loggedUser };
-  }
   public async getAllRama() {
     try {
       return await this.prisma.rama.findMany({
@@ -47,8 +33,7 @@ export class RamaService {
     }
   }
 
-  public async getById(id: string, reqOrActor?: ExpressRequest | string) {
-    const { loggedUser } = await this.resolveActor(reqOrActor);
+  public async getById(id: string, reqOrActor?: ExpressRequest | 'SYSTEM') {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
@@ -79,8 +64,12 @@ export class RamaService {
     }
   }
 
-  public async create(data: CreateRamaDTO, reqOrActor?: ExpressRequest | string) {
-    const { actorId } = await this.resolveActor(reqOrActor);
+  public async create(data: CreateRamaDTO, reqOrActor?: ExpressRequest | 'SYSTEM') {
+    const { log } = await this.actionLogsService.start(ActionType.RAMA_CREATE, reqOrActor ?? 'SYSTEM', {
+      target_table: ActionTargetTable.RAMA,
+      metadata: { action: 'create_rama', payload: { ...data } },
+    });
+    const actorId = log.id_user;
     try {
       if (!data.name || data.name.trim().length === 0) {
         throw new BadRequestException('El nombre de la rama es requerido');
@@ -95,10 +84,17 @@ export class RamaService {
         throw new ConflictException('Ya existe una rama con ese nombre');
       }
 
-      const log = await this.actionLogsService.start(ActionType.RAMA_CREATE, actorId ?? 'system', {
-        target_table: ActionTargetTable.RAMA,
-        metadata: { action: 'create_rama', payload: { ...data } },
-      });
+      try {
+        const created = await this.prisma.rama.create({
+          data: { ...data, name: data.name.trim() },
+          include: { users: true },
+        });
+        await this.actionLogsService.markSuccess(log.id, 'Rama creada', { createdId: created.id });
+        return created;
+      } catch (error) {
+        await this.actionLogsService.markError(log.id, error as Error);
+        throw error;
+      }
       try {
         const created = await this.prisma.rama.create({
           data: { ...data, name: data.name.trim() },
@@ -122,8 +118,13 @@ export class RamaService {
     }
   }
 
-  public async update(id: string, data: UpdateRamaDTO, reqOrActor?: ExpressRequest | string) {
-    const { loggedUser, actorId } = await this.resolveActor(reqOrActor);
+  public async update(id: string, data: UpdateRamaDTO, reqOrActor?: ExpressRequest | 'SYSTEM') {
+    const { log } = await this.actionLogsService.start(ActionType.RAMA_UPDATE, reqOrActor ?? 'SYSTEM', {
+      target_table: ActionTargetTable.RAMA,
+      target_id: id,
+      metadata: { action: 'update_rama', payload: { ...data } },
+    });
+    const actorId = log.id_user;
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
@@ -151,23 +152,18 @@ export class RamaService {
         }
       }
 
-      const log = await this.actionLogsService.start(ActionType.RAMA_UPDATE, actorId ?? 'system', {
-        target_table: ActionTargetTable.RAMA,
-        target_id: id,
-        metadata: { action: 'update_rama', payload: { ...data } },
+    try {
+      const updated = await this.prisma.rama.update({
+        where: { id },
+        data: { ...data, name: data.name ? data.name.trim() : undefined },
+        include: { users: true },
       });
-      try {
-        const updated = await this.prisma.rama.update({
-          where: { id },
-          data: { ...data, name: data.name ? data.name.trim() : undefined },
-          include: { users: true },
-        });
-        await this.actionLogsService.markSuccess(log.id, 'Rama actualizada', { updatedId: updated.id });
-        return updated;
-      } catch (error) {
-        await this.actionLogsService.markError(log.id, error as Error);
-        throw error;
-      }
+      await this.actionLogsService.markSuccess(log.id, 'Rama actualizada', { updatedId: updated.id });
+      return updated;
+    } catch (error) {
+      await this.actionLogsService.markError(log.id, error as Error);
+      throw error;
+    }
     } catch (error) {
       if (
         error instanceof NotFoundException ||
@@ -181,8 +177,13 @@ export class RamaService {
     }
   }
 
-  public async delete(id: string, reqOrActor?: ExpressRequest | string) {
-    const { loggedUser, actorId } = await this.resolveActor(reqOrActor);
+  public async delete(id: string, reqOrActor?: ExpressRequest | 'SYSTEM') {
+    const { log } = await this.actionLogsService.start(ActionType.RAMA_DELETE, reqOrActor ?? 'SYSTEM', {
+      target_table: ActionTargetTable.RAMA,
+      target_id: id,
+      metadata: { action: 'delete_rama' },
+    });
+    const actorId = log.id_user;
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
@@ -197,19 +198,14 @@ export class RamaService {
         );
       }
 
-      const log = await this.actionLogsService.start(ActionType.RAMA_DELETE, actorId ?? 'system', {
-        target_table: ActionTargetTable.RAMA,
-        target_id: id,
-        metadata: { action: 'delete_rama' },
-      });
-      try {
-        const deleted = await this.prisma.rama.delete({ where: { id } });
-        await this.actionLogsService.markSuccess(log.id, 'Rama eliminada', { deletedId: deleted.id });
-        return deleted;
-      } catch (error) {
-        await this.actionLogsService.markError(log.id, error as Error);
-        throw error;
-      }
+    try {
+      const deleted = await this.prisma.rama.delete({ where: { id } });
+      await this.actionLogsService.markSuccess(log.id, 'Rama eliminada', { deletedId: deleted.id });
+      return deleted;
+    } catch (error) {
+      await this.actionLogsService.markError(log.id, error as Error);
+      throw error;
+    }
     } catch (error) {
       if (
         error instanceof NotFoundException ||

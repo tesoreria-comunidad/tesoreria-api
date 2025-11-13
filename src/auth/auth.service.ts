@@ -22,7 +22,25 @@ export class AuthService {
   public async register(data: CreateUserDTO, req: ExpressRequest) {
     const { id } = await this.getDataFromToken(req);
     // minimal create via prisma to avoid circular dependency with user service
-    const created = await this.prisma.user.create({ data: { ...data } as any });
+    const createData = {
+      username: data.username,
+      password: data.password,
+      name: data.name,
+      last_name: data.last_name,
+      role: data.role,
+      id_folder: data.id_folder ?? null,
+      id_rama: data.id_rama ?? null,
+      address: data.address ?? null,
+      phone: data.phone ?? null,
+      email: data.email ?? null,
+      gender: data.gender ?? null,
+      dni: data.dni ?? null,
+      id_family: data.id_family ?? null,
+      birthdate: data.birthdate ?? null,
+      citizenship: data.citizenship ?? null,
+      family_role: data.family_role ?? undefined,
+    };
+    const created = await this.prisma.user.create({ data: createData });
     return created;
   }
   public async validateUser(username: string, password: string) {
@@ -64,13 +82,13 @@ export class AuthService {
     const [type, token] = request.headers.authorization?.split(' ') ?? [];
     if (!token) throw new UnauthorizedException();
     try {
-      const payload = await this.jwtService.verifyAsync(token, {
+      const payload = (await this.jwtService.verifyAsync(token, {
         secret: process.env.JWTKEY,
-      });
+      })) as IPayloadToken;
       if (!payload) {
         throw new NotFoundException('Tenant does not exist');
       }
-  const user = await this.prisma.user.findUnique({ where: { id: (payload as any).id } });
+      const user = await this.prisma.user.findUnique({ where: { id: payload.id } });
       if (!user) throw new NotFoundException('User does not exist');
       return user;
     } catch (error) {
@@ -81,11 +99,11 @@ export class AuthService {
     const [type, token] = request.headers.authorization?.split(' ') ?? [];
     if (!token) throw new UnauthorizedException('Invalid token');
     try {
-      const payload: IPayloadToken = await this.jwtService.verifyAsync(token, {
+      const payload = (await this.jwtService.verifyAsync(token, {
         secret: process.env.JWTKEY,
-      });
+      })) as IPayloadToken;
 
-      const user = await this.prisma.user.findUnique({ where: { id: (payload as any).id } });
+      const user = await this.prisma.user.findUnique({ where: { id: payload.id } });
       if (!user) {
         throw new NotFoundException('Tenant is not defined');
       }

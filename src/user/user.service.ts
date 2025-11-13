@@ -18,31 +18,20 @@ import { ActionType, ActionTargetTable } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { RoleFilterService } from 'src/services/RoleFilter.service';
 import { Request as ExpressRequest } from 'express';
-import { AuthService } from 'src/auth/auth.service';
+// AuthService not needed here; actor resolution is centralized in ActionLogsService
 
 @Injectable()
 export class UserService {
   constructor(
     private prisma: PrismaService,
     private roleFilterService: RoleFilterService,
-    private actionLogsService: ActionLogsService,
-    private authService: AuthService,
+  private actionLogsService: ActionLogsService,
   ) {}
-  private async resolveActor(reqOrActor?: ExpressRequest | string) {
-    let actorId: string | undefined = undefined;
-    let loggedUser: any = undefined;
-    if (typeof reqOrActor === 'string') {
-      actorId = reqOrActor;
-    } else if (reqOrActor) {
-      const tokenData = await this.authService.getDataFromToken(reqOrActor as ExpressRequest);
-      loggedUser = tokenData;
-      actorId = tokenData?.id;
-    }
-    return { actorId, loggedUser };
-  }
 
-  public async getAllUser(reqOrActor?: ExpressRequest | string) {
-    const { loggedUser } = await this.resolveActor(reqOrActor);
+  // Actor resolution is centralized in ActionLogsService.resolveActor(reqOrActor)
+
+  public async getAllUser(reqOrActor?: ExpressRequest | 'SYSTEM') {
+  const { loggedUser } = await this.actionLogsService.resolveActor(reqOrActor ?? 'SYSTEM');
     try {
       const where = this.roleFilterService.apply(loggedUser);
       return await this.prisma.user.findMany({
@@ -72,8 +61,8 @@ export class UserService {
     }
   }
 
-  public async getById(id: string, reqOrActor?: ExpressRequest | string) {
-    const { loggedUser } = await this.resolveActor(reqOrActor);
+  public async getById(id: string, reqOrActor?: ExpressRequest | 'SYSTEM') {
+  const { loggedUser } = await this.actionLogsService.resolveActor(reqOrActor ?? 'SYSTEM');
     try {
       if (!id) throw new BadRequestException('ID es requerido');
       const where = this.roleFilterService.apply(loggedUser, { id });
@@ -95,11 +84,11 @@ export class UserService {
     }
   }
 
-  public async create(data: CreateUserDTO, reqOrActor?: ExpressRequest | string) {
-    const { actorId } = await this.resolveActor(reqOrActor);
-    const log = await this.actionLogsService.start(
+  public async create(data: CreateUserDTO, reqOrActor?: ExpressRequest | 'SYSTEM') {
+    const { loggedUser } = await this.actionLogsService.resolveActor(reqOrActor ?? 'SYSTEM');
+    const { log } = await this.actionLogsService.start(
       ActionType.USER_CREATE,
-      actorId ?? 'system',
+      reqOrActor ?? 'SYSTEM',
       { target_table: ActionTargetTable.USER },
     );
 
@@ -229,9 +218,9 @@ export class UserService {
 
   public async findBy(
     { key, value }: { key: keyof User; value: string | number },
-    reqOrActor?: ExpressRequest | string,
+    reqOrActor?: ExpressRequest | 'SYSTEM',
   ) {
-    const { loggedUser } = await this.resolveActor(reqOrActor);
+  const { loggedUser } = await this.actionLogsService.resolveActor(reqOrActor ?? 'SYSTEM');
     try {
       const where = this.roleFilterService.apply(loggedUser, { [key]: value });
       return await this.prisma.user.findFirst({
@@ -247,13 +236,12 @@ export class UserService {
   public async update(
     id: string,
     data: UpdateUserDTO,
-    reqOrActor?: ExpressRequest | string,
+    reqOrActor?: ExpressRequest | 'SYSTEM',
   ) {
-    const { loggedUser, actorId } = await this.resolveActor(reqOrActor);
-    const userId = (actorId as string) ?? (loggedUser?.id as string);
-    const log = await this.actionLogsService.start(
+  const { loggedUser } = await this.actionLogsService.resolveActor(reqOrActor ?? 'SYSTEM');
+    const { log } = await this.actionLogsService.start(
       ActionType.USER_UPDATE,
-      userId,
+      reqOrActor ?? 'SYSTEM',
       { target_table: ActionTargetTable.USER, target_id: id },
     );
 
@@ -393,12 +381,10 @@ export class UserService {
     }
   }
 
-  public async delete(id: string, reqOrActor?: ExpressRequest | string) {
-    const { loggedUser, actorId } = await this.resolveActor(reqOrActor);
-    const userId = (actorId as string) ?? (loggedUser?.id as string);
-    const log = await this.actionLogsService.start(
+  public async delete(id: string, reqOrActor?: ExpressRequest | 'SYSTEM') {
+    const { log } = await this.actionLogsService.start(
       ActionType.USER_DELETE,
-      userId,
+      reqOrActor ?? 'SYSTEM',
       { target_table: ActionTargetTable.USER, target_id: id },
     );
 
@@ -434,17 +420,17 @@ export class UserService {
   public async bulkCreate(
     users: BulkCreateUserDTO[],
     id_rama: string,
-    reqOrActor?: ExpressRequest | string,
+    reqOrActor?: ExpressRequest | 'SYSTEM',
   ) {
-    const { loggedUser, actorId } = await this.resolveActor(reqOrActor);
-    const userId = (actorId as string) ?? (loggedUser?.id as string);
-    const log = await this.actionLogsService.start(
+  const { loggedUser } = await this.actionLogsService.resolveActor(reqOrActor ?? 'SYSTEM');
+    const { log } = await this.actionLogsService.start(
       ActionType.USER_CREATE,
-      userId,
+      reqOrActor ?? 'SYSTEM',
       { target_table: ActionTargetTable.USER },
     );
 
     try {
+      if (!loggedUser) throw new BadRequestException('Actor required');
       // Si no es MASTER o DIRIGENTE, se bloquea la creacion
       if (loggedUser.role === 'BENEFICIARIO') {
         throw new BadRequestException('No tiene permisos para creación masiva');
@@ -452,6 +438,7 @@ export class UserService {
 
       // Si es DIRIGENTE, forzar id_rama a la suya
       if (loggedUser.role === 'DIRIGENTE') {
+        if (!loggedUser.id_rama) throw new BadRequestException('Actor tiene id_rama nulo');
         id_rama = loggedUser.id_rama;
       }
 
@@ -691,9 +678,10 @@ export class UserService {
   }
   public async getUsersByFamily(
     familyId: string,
-    loggedUser: any,
-    actorId?: string,
+    reqOrActor?: ExpressRequest | 'SYSTEM',
   ) {
+    const { loggedUser } = await this.actionLogsService.resolveActor(reqOrActor ?? 'SYSTEM');
+    if (!loggedUser) throw new BadRequestException('Actor required');
     try {
       if (!familyId)
         throw new BadRequestException('ID de familia es requerido');
@@ -720,10 +708,11 @@ export class UserService {
 
   public async getFamilyAdmin(
     familyId: string,
-    loggedUser: any,
-    actorId?: string,
+    reqOrActor?: ExpressRequest | 'SYSTEM',
   ) {
     try {
+      const { loggedUser } = await this.actionLogsService.resolveActor(reqOrActor ?? 'SYSTEM');
+      if (!loggedUser) throw new BadRequestException('Actor required');
       const where = this.roleFilterService.apply(loggedUser, {
         id_family: familyId,
         family_role: 'ADMIN',
@@ -744,10 +733,11 @@ export class UserService {
 
   public async getFamilyAdmins(
     familyId: string,
-    loggedUser: any,
-    actorId?: string,
+    reqOrActor?: ExpressRequest | 'SYSTEM',
   ) {
     try {
+      const { loggedUser } = await this.actionLogsService.resolveActor(reqOrActor ?? 'SYSTEM');
+      if (!loggedUser) throw new BadRequestException('Actor required');
       const where = this.roleFilterService.apply(loggedUser, {
         id_family: familyId,
         family_role: 'ADMIN',
@@ -768,13 +758,13 @@ export class UserService {
   public async promoteToFamilyAdmin(
     userId: string,
     familyId: string,
-    loggedUser: any,
-    actorId?: string,
+    reqOrActor?: ExpressRequest | 'SYSTEM',
   ) {
-    const userActor = (actorId as string) ?? (loggedUser?.id as string);
-    const log = await this.actionLogsService.start(
+    const { loggedUser } = await this.actionLogsService.resolveActor(reqOrActor ?? 'SYSTEM');
+    if (!loggedUser) throw new BadRequestException('Actor required');
+    const { log } = await this.actionLogsService.start(
       ActionType.USER_UPDATE,
-      userActor,
+      reqOrActor ?? 'SYSTEM',
       {
         target_table: ActionTargetTable.USER,
         target_id: userId,
@@ -858,13 +848,13 @@ export class UserService {
   public async demoteFromFamilyAdmin(
     userId: string,
     familyId: string,
-    loggedUser: any,
-    actorId?: string,
+    reqOrActor?: ExpressRequest | 'SYSTEM',
   ) {
-    const userActor = (actorId as string) ?? (loggedUser?.id as string);
-    const log = await this.actionLogsService.start(
+    const { loggedUser } = await this.actionLogsService.resolveActor(reqOrActor ?? 'SYSTEM');
+    if (!loggedUser) throw new BadRequestException('Actor required');
+    const { log } = await this.actionLogsService.start(
       ActionType.USER_UPDATE,
-      userActor,
+      reqOrActor ?? 'SYSTEM',
       {
         target_table: ActionTargetTable.USER,
         target_id: userId,

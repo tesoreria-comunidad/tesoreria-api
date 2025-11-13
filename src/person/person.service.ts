@@ -14,31 +14,19 @@ import { RoleFilterService } from 'src/services/RoleFilter.service';
 import { ActionLogsService } from 'src/action-logs/action-logs.service';
 import { ActionType, ActionTargetTable } from '@prisma/client';
 import { Request as ExpressRequest } from 'express';
-import { AuthService } from 'src/auth/auth.service';
+
+
 @Injectable()
 export class PersonService {
   constructor(
     private prisma: PrismaService,
     private roleFilterService: RoleFilterService,
     private actionLogsService: ActionLogsService,
-    private authService: AuthService,
   ) {}
+  // Actor resolution is centralized in ActionLogsService.resolveActor
 
-  private async resolveActor(reqOrActor?: ExpressRequest | string) {
-    let actorId: string | undefined = undefined;
-    let loggedUser: any = undefined;
-    if (typeof reqOrActor === 'string') {
-      actorId = reqOrActor;
-    } else if (reqOrActor) {
-      const tokenData = await this.authService.getDataFromToken(reqOrActor as ExpressRequest);
-      loggedUser = tokenData;
-      actorId = tokenData?.id;
-    }
-    return { actorId, loggedUser };
-  }
-
-  async getAllPersons(reqOrActor?: ExpressRequest | string): Promise<Person[]> {
-    const { loggedUser } = await this.resolveActor(reqOrActor);
+  async getAllPersons(reqOrActor?: ExpressRequest | 'SYSTEM'): Promise<Person[]> {
+    const loggedUser = reqOrActor && typeof reqOrActor !== 'string' ? (reqOrActor as any).user : undefined;
     try {
       const where = this.roleFilterService.apply(loggedUser);
       return this.prisma.person.findMany({
@@ -50,8 +38,8 @@ export class PersonService {
     }
   }
 
-  async getById(id: string, reqOrActor?: ExpressRequest | string): Promise<Person | null> {
-    const { loggedUser } = await this.resolveActor(reqOrActor);
+  async getById(id: string, reqOrActor?: ExpressRequest | 'SYSTEM'): Promise<Person | null> {
+    const loggedUser = reqOrActor && typeof reqOrActor !== 'string' ? (reqOrActor as any).user : undefined;
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
@@ -65,12 +53,10 @@ export class PersonService {
     
   }
 
-  async create(data: CreatePersonDTO, reqOrActor?: ExpressRequest | string): Promise<Person> {
-    const { loggedUser, actorId } = await this.resolveActor(reqOrActor);
-    const userId = (actorId as string) ?? (loggedUser?.id as string);
-    const log = await this.actionLogsService.start(
+  async create(data: CreatePersonDTO, reqOrActor?: ExpressRequest | 'SYSTEM'): Promise<Person> {
+    const { log, loggedUser } = await this.actionLogsService.start(
       ActionType.PERSON_CREATE,
-      userId,
+      reqOrActor ?? 'SYSTEM',
       { target_table: ActionTargetTable.USER },
     );
 
@@ -94,12 +80,10 @@ export class PersonService {
     }
   }
 
-  async update(id: string, data: UpdatePersonDTO, reqOrActor?: ExpressRequest | string): Promise<Person> {
-    const { loggedUser, actorId } = await this.resolveActor(reqOrActor);
-    const userId = (actorId as string) ?? (loggedUser?.id as string);
-    const log = await this.actionLogsService.start(
+  async update(id: string, data: UpdatePersonDTO, reqOrActor?: ExpressRequest | 'SYSTEM'): Promise<Person> {
+    const { log, loggedUser } = await this.actionLogsService.start(
       ActionType.PERSON_UPDATE,
-      userId,
+      reqOrActor ?? 'SYSTEM',
       { target_table: ActionTargetTable.USER, target_id: id },
     );
 
@@ -131,12 +115,10 @@ export class PersonService {
     
   }
 
-  async delete(id: string, reqOrActor?: ExpressRequest | string): Promise<Person> {
-    const { loggedUser, actorId } = await this.resolveActor(reqOrActor);
-    const userId = (actorId as string) ?? (loggedUser?.id as string);
-    const log = await this.actionLogsService.start(
+  async delete(id: string, reqOrActor?: ExpressRequest | 'SYSTEM'): Promise<Person> {
+    const { log, loggedUser } = await this.actionLogsService.start(
       ActionType.PERSON_DELETE,
-      userId,
+      reqOrActor ?? 'SYSTEM',
       { target_table: ActionTargetTable.USER, target_id: id },
     );
 
@@ -159,8 +141,8 @@ export class PersonService {
     }
   }
 
-  async findByDni(dni: string, reqOrActor?: ExpressRequest | string): Promise<Person | null> {
-    const { loggedUser } = await this.resolveActor(reqOrActor);
+  async findByDni(dni: string, reqOrActor?: ExpressRequest | 'SYSTEM'): Promise<Person | null> {
+    const loggedUser = reqOrActor && typeof reqOrActor !== 'string' ? (reqOrActor as any).user : undefined;
     try {
       if (!dni) {
       throw new BadRequestException('DNI es requerido');
@@ -176,16 +158,14 @@ export class PersonService {
   async bulkCreate(data: {
     persons: CreatePersonDTO[];
     id_rama?: string;
-  }, reqOrActor?: ExpressRequest | string): Promise<Person[]> {
+  }, reqOrActor?: ExpressRequest | 'SYSTEM'): Promise<Person[]> {
     const { persons, id_rama } = data;
-    const { loggedUser, actorId } = await this.resolveActor(reqOrActor);
-    const where = this.roleFilterService.apply(loggedUser);
-    const userId = (actorId as string) ?? (loggedUser?.id as string);
-    const log = await this.actionLogsService.start(
+    const { log, loggedUser } = await this.actionLogsService.start(
       ActionType.PERSON_CREATE,
-      userId,
+      reqOrActor ?? 'SYSTEM',
       { target_table: ActionTargetTable.USER },
     );
+    const where = this.roleFilterService.apply(loggedUser);
 
     try {
       if (id_rama) {

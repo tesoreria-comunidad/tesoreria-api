@@ -7,7 +7,6 @@ import {
 
 export type CreateLogInput = {
   action_type: ActionType;
-  id_user: string;
   target_table?: ActionTargetTable | null;
   target_id?: string | null;
   id_family?: string | null;

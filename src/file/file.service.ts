@@ -28,23 +28,12 @@ export class FileService {
     this.bucketName = this.configService.get('AWS_BUCKET_NAME')!;
   }
 
-  private async resolveActor(reqOrActor?: ExpressRequest | string) {
-    let actorId: string | undefined = undefined;
-    if (typeof reqOrActor === 'string') {
-      actorId = reqOrActor;
-    } else if (reqOrActor) {
-      const tokenData = await this.authService.getDataFromToken(reqOrActor as ExpressRequest);
-      actorId = tokenData?.id;
-    }
-    return actorId;
-  }
-
-  async upload(file: Express.Multer.File, reqOrActor?: ExpressRequest | string) {
-    const actorId = await this.resolveActor(reqOrActor);
+  async upload(file: Express.Multer.File, reqOrActor?: ExpressRequest | 'SYSTEM') {
+    // Delegate actor resolution to ActionLogsService by passing the Request or 'SYSTEM'
     try {
       const fileKey = `${Date.now()}-${uuid()}-${file.originalname}`;
 
-      const log = await this.actionLogsService.start(ActionType.FILE_UPLOAD, actorId ?? 'system', {
+      const { log } = await this.actionLogsService.start(ActionType.FILE_UPLOAD, reqOrActor ?? 'SYSTEM', {
         metadata: { originalName: file.originalname },
       });
 
@@ -72,10 +61,9 @@ export class FileService {
     }
   }
 
-  async delete(fileName: string, reqOrActor?: ExpressRequest | string) {
-    const actorId = await this.resolveActor(reqOrActor);
+  async delete(fileName: string, reqOrActor?: ExpressRequest | 'SYSTEM') {
     try {
-      const log = await this.actionLogsService.start(ActionType.FILE_DELETE, actorId ?? 'system', {
+      const { log } = await this.actionLogsService.start(ActionType.FILE_DELETE, reqOrActor ?? 'SYSTEM', {
         metadata: { fileName },
       });
       try {

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { CronJob } from 'cron';
 import { PrismaService } from '../prisma.service';
+import { Request as ExpressRequest } from 'express';
 import { Balance } from '@prisma/client';
 import { BalanceService } from 'src/balance/balance.service';
 
@@ -119,10 +120,10 @@ export class CronJobsService {
   /**
    * Método para ejecutar manualmente la actualización (útil para testing)
    */
-  async runMonthlyUpdateManually(reqOrActor?: any): Promise<void> {
+  async runMonthlyUpdateManually(reqOrActor?: ExpressRequest | 'SYSTEM'): Promise<void> {
     this.logger.log('Ejecutando actualización mensual manualmente...');
-    // Forward reqOrActor to BalanceService.updateAll which accepts either a Request or actorId
-    await this.balanceService.updateAll(reqOrActor as any);
+    // Forward reqOrActor to BalanceService.updateAll which accepts either a Request or 'SYSTEM'
+    await this.balanceService.updateAll(reqOrActor ?? 'SYSTEM');
   }
 
   /**

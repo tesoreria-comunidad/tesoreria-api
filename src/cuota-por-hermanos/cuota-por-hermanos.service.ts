@@ -17,25 +17,12 @@ export class CuotaPorHermanosService {
     private authService: AuthService,
   ) {}
 
-  private async resolveActor(reqOrActor?: ExpressRequest | string) {
-    if (!reqOrActor) return { actorId: undefined, loggedUser: undefined };
-    if (typeof reqOrActor === 'string') return { actorId: reqOrActor, loggedUser: undefined };
-    try {
-      const loggedUser = await this.authService.getDataFromToken(reqOrActor as any);
-      return { actorId: loggedUser?.id, loggedUser };
-    } catch (err) {
-      return { actorId: undefined, loggedUser: undefined };
-    }
-  }
-
-  async create(data: CreateCuotaPorHermanosDto, reqOrActor?: ExpressRequest | string) {
+  async create(data: CreateCuotaPorHermanosDto, reqOrActor?: ExpressRequest | 'SYSTEM') {
     // Evitar duplicados
     const exists = await this.prisma.cuotaPorHermanos.findFirst({ where: { cantidad: data.cantidad } });
     if (exists) throw new ConflictException('Ya existe una cuota para esa cantidad de hermanos');
 
-    const { actorId } = await this.resolveActor(reqOrActor);
-
-    const log = await this.actionLogsService.start(ActionType.CPH_CREATE, actorId ?? 'system', {
+  const { log } = await this.actionLogsService.start(ActionType.CPH_CREATE, reqOrActor ?? 'SYSTEM', {
       target_table: ActionTargetTable.CPH,
       metadata: { action: 'create_cph', payload: { ...data } },
     });
@@ -60,10 +47,9 @@ export class CuotaPorHermanosService {
     return cuota;
   }
 
-  async update(id: string, data: UpdateCuotaPorHermanosDto, reqOrActor?: ExpressRequest | string) {
+  async update(id: string, data: UpdateCuotaPorHermanosDto, reqOrActor?: ExpressRequest | 'SYSTEM') {
     await this.findOne(id); // Valida existencia
-    const { actorId } = await this.resolveActor(reqOrActor);
-    const log = await this.actionLogsService.start(ActionType.CPH_UPDATE, actorId ?? 'system', {
+    const { log } = await this.actionLogsService.start(ActionType.CPH_UPDATE, reqOrActor ?? 'SYSTEM', {
       target_table: ActionTargetTable.CPH,
       target_id: id,
       metadata: { action: 'update_cph', payload: { ...data } },
@@ -78,10 +64,9 @@ export class CuotaPorHermanosService {
     }
   }
 
-  async remove(id: string, reqOrActor?: ExpressRequest | string) {
+  async remove(id: string, reqOrActor?: ExpressRequest | 'SYSTEM') {
     await this.findOne(id); // Valida existencia
-    const { actorId } = await this.resolveActor(reqOrActor);
-    const log = await this.actionLogsService.start(ActionType.CPH_DELETE, actorId ?? 'system', {
+    const { log } = await this.actionLogsService.start(ActionType.CPH_DELETE, reqOrActor ?? 'SYSTEM', {
       target_table: ActionTargetTable.CPH,
       target_id: id,
       metadata: { action: 'delete_cph' },

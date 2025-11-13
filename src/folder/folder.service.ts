@@ -21,21 +21,11 @@ export class FolderService {
     private actionLogsService: ActionLogsService,
     private authService: AuthService,
   ) {}
-  private async resolveActor(reqOrActor?: ExpressRequest | string) {
-    let actorId: string | undefined = undefined;
-    let loggedUser: any = undefined;
-    if (typeof reqOrActor === 'string') {
-      actorId = reqOrActor;
-    } else if (reqOrActor) {
-      const tokenData = await this.authService.getDataFromToken(reqOrActor as ExpressRequest);
-      loggedUser = tokenData;
-      actorId = tokenData?.id;
-    }
-    return { actorId, loggedUser };
-  }
+  
 
-  public async getAllFolder(reqOrActor?: ExpressRequest | string) {
-    const { loggedUser } = await this.resolveActor(reqOrActor);
+  public async getAllFolder(reqOrActor?: ExpressRequest | 'SYSTEM') {
+    let loggedUser: any = undefined;
+    if (reqOrActor && typeof reqOrActor !== 'string') loggedUser = (reqOrActor as any).user;
     try {
       const where = this.roleFilterService.apply(loggedUser);
       return await this.prisma.folder.findMany({
@@ -50,8 +40,9 @@ export class FolderService {
     }
   }
 
-  public async getById(id: string, reqOrActor?: ExpressRequest | string) {
-    const { loggedUser } = await this.resolveActor(reqOrActor);
+  public async getById(id: string, reqOrActor?: ExpressRequest | 'SYSTEM') {
+    let loggedUser: any = undefined;
+    if (reqOrActor && typeof reqOrActor !== 'string') loggedUser = (reqOrActor as any).user;
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
@@ -81,10 +72,9 @@ export class FolderService {
     }
   }
 
-  public async create(data: CreateFolderDTO, reqOrActor?: ExpressRequest | string) {
-    const { actorId } = await this.resolveActor(reqOrActor);
+  public async create(data: CreateFolderDTO, reqOrActor?: ExpressRequest | 'SYSTEM') {
     try {
-      const log = await this.actionLogsService.start(ActionType.FOLDER_CREATE, actorId ?? 'system', {
+      const { log } = await this.actionLogsService.start(ActionType.FOLDER_CREATE, reqOrActor ?? 'SYSTEM', {
         target_table: ActionTargetTable.FOLDER,
         metadata: { action: 'create_folder', payload: { ...data } },
       });
@@ -102,8 +92,9 @@ export class FolderService {
     }
   }
 
-  public async update(id: string, data: UpdateFolderDTO, reqOrActor?: ExpressRequest | string) {
-    const { loggedUser, actorId } = await this.resolveActor(reqOrActor);
+  public async update(id: string, data: UpdateFolderDTO, reqOrActor?: ExpressRequest | 'SYSTEM') {
+    let loggedUser: any = undefined;
+    if (reqOrActor && typeof reqOrActor !== 'string') loggedUser = (reqOrActor as any).user;
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
@@ -111,7 +102,7 @@ export class FolderService {
       const where = this.roleFilterService.apply(loggedUser);
       // Verificar que la carpeta existe
       await this.getById(id, reqOrActor);
-      const log = await this.actionLogsService.start(ActionType.FOLDER_UPDATE, actorId ?? 'system', {
+      const { log } = await this.actionLogsService.start(ActionType.FOLDER_UPDATE, reqOrActor ?? 'SYSTEM', {
         target_table: ActionTargetTable.FOLDER,
         target_id: id,
         metadata: { action: 'update_folder', payload: { ...data } },
@@ -136,8 +127,9 @@ export class FolderService {
     }
   }
 
-  public async delete(id: string, reqOrActor?: ExpressRequest | string) {
-    const { loggedUser, actorId } = await this.resolveActor(reqOrActor);
+  public async delete(id: string, reqOrActor?: ExpressRequest | 'SYSTEM') {
+    let loggedUser: any = undefined;
+    if (reqOrActor && typeof reqOrActor !== 'string') loggedUser = (reqOrActor as any).user;
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
@@ -145,7 +137,7 @@ export class FolderService {
       const where = this.roleFilterService.apply(loggedUser);
       // Verificar que la carpeta existe
       await this.getById(id, reqOrActor);
-      const log = await this.actionLogsService.start(ActionType.FOLDER_DELETE, actorId ?? 'system', {
+      const { log } = await this.actionLogsService.start(ActionType.FOLDER_DELETE, reqOrActor ?? 'SYSTEM', {
         target_table: ActionTargetTable.FOLDER,
         target_id: id,
         metadata: { action: 'delete_folder' },

@@ -1,13 +1,16 @@
 // src/action-logs/action-logs.service.ts
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma, ActionType, ActionTargetTable } from '@prisma/client';
 import { PrismaService } from 'src/prisma.service';
 import { CreateLogInput, ListLogsParams } from './types';
 import { Request as ExpressRequest } from 'express';
 import { AuthService } from 'src/auth/auth.service';
+import { LoggedUser } from 'src/auth/types';
+import { isLoggedUser } from 'src/auth/typeguards';
 
 @Injectable()
 export class ActionLogsService {
+  private readonly logger = new Logger(ActionLogsService.name);
   constructor(private prisma: PrismaService, private authService: AuthService) {}
 
   /** Helper de rango mensual (inicio/fin de mes del date dado) */
@@ -25,26 +28,67 @@ export class ActionLogsService {
     return { start, end };
   }
 
+  /** Resolve actor from either an Express Request or the literal 'SYSTEM'.
+   * Note: callers should pass either an Express Request (HTTP flow) or the string 'SYSTEM'
+   * for programmatic/cron/manual flows. The method will return an object with
+   * { actorId, loggedUser } where actorId is either the user id or the string 'SYSTEM'.
+   */
+  /**
+   * Resolve actor from either an Express Request or the literal 'SYSTEM'.
+   * This enforces the rule that callers should not pass arbitrary user-id strings
+   * through the reqOrActor param. For programmatic flows that need a string
+   * actor id (eg. jobs that run as a specific user) they should call ActionLogsService.start
+   * directly with that user id. For automatic resolution pass the HTTP Request.
+   */
+  async resolveActor(reqOrActor?: ExpressRequest | LoggedUser | 'SYSTEM') {
+    if (!reqOrActor) {
+      throw new BadRequestException(
+        'resolveActor requires an Express Request, a LoggedUser, or the literal "SYSTEM" as parameter.',
+      );
+    }
+
+    // explicit SYSTEM actor
+    if (typeof reqOrActor === 'string') {
+      if (reqOrActor.toUpperCase() === 'SYSTEM') return { actorId: 'SYSTEM', loggedUser: undefined };
+      throw new BadRequestException(
+        "Invalid actor string passed to resolveActor(). Only the literal 'SYSTEM' is accepted when passing a string.",
+      );
+    }
+
+    // If a LoggedUser object was provided directly, use it
+    if (isLoggedUser(reqOrActor)) {
+      return { actorId: reqOrActor.id, loggedUser: reqOrActor };
+    }
+
+    // Otherwise assume it's an Express Request: prefer req.user if populated by AuthGuard
+    const req = reqOrActor as ExpressRequest & { user?: LoggedUser };
+    if (req.user) {
+      return { actorId: req.user.id, loggedUser: req.user };
+    }
+
+    // Do NOT attempt to decode tokens here anymore. AuthGuard is responsible
+    // for populating `req.user`. If req.user is missing, fail fast and ask
+    // the caller to ensure the request passed was authenticated / processed
+    // by the AuthGuard. This enforces single responsibility and avoids
+    // double-decoding tokens.
+    throw new BadRequestException(
+      'Unable to resolve actor: provided Request does not have req.user. Ensure AuthGuard populated req.user or pass a LoggedUser / "SYSTEM".',
+    );
+  }
+
   /** Crear un log genérico (sin idempotencia) */
-  async create(input: CreateLogInput, reqOrActor?: ExpressRequest | string) {
-    // If id_user not provided, attempt to resolve it from the request or actor string
-    if (!input.id_user) {
-      if (typeof reqOrActor === 'string') {
-        input.id_user = reqOrActor;
-      } else if (reqOrActor) {
-        try {
-          const user = await this.authService.getDataFromToken(reqOrActor as any);
-          input.id_user = (user as any)?.id ?? input.id_user;
-        } catch (err) {
-          // ignore resolution errors; create will proceed without id_user or caller may have provided it
-        }
-      }
+  async create(input: CreateLogInput, reqOrActor: ExpressRequest | LoggedUser | 'SYSTEM') {
+    // Resolve actor centrally using resolveActor (requires Request or 'SYSTEM')
+    const resolved = await this.resolveActor(reqOrActor);
+    const id_user = resolved.actorId;
+    if (!id_user) {
+      throw new BadRequestException('Unable to determine actor id for ActionLog after resolution.');
     }
 
     return this.prisma.actionLog.create({
       data: {
         action_type: input.action_type,
-        id_user: input.id_user,
+        id_user,
         target_table: input.target_table ?? null,
         target_id: input.target_id ?? null,
         id_family: input.id_family ?? null,
@@ -60,30 +104,74 @@ export class ActionLogsService {
   }
 
   /** Crear un log solo si NO existe ya por requestId (idempotencia a nivel app) */
-  async createIfAbsentByRequestId(input: CreateLogInput) {
+  async createIfAbsentByRequestId(input: CreateLogInput, reqOrActor: ExpressRequest | LoggedUser | 'SYSTEM') {
     if (!input.requestId) {
       // si no llega requestId, delega en create
-      return this.create(input);
+      return this.create(input, reqOrActor);
     }
     const existing = await this.prisma.actionLog.findUnique({
       where: { requestId: input.requestId },
     });
     if (existing) return existing;
-    return this.create(input);
+    return this.create(input, reqOrActor);
   }
 
   /** Inicia un log estilo “job” como PENDING */
+  /**
+   * Inicia un log estilo “job” como PENDING.
+   *
+   * Soporta dos modos:
+   *  - start(action, explicitUserId, extra) -> crea el log con id_user igual a explicitUserId
+   *  - start(action, reqOrActor, extra) -> si se pasa una Request o 'SYSTEM', delega a create
+   *
+   * Nota: Internamente la resolución del actor (desde request) se realiza en create()/resolveActor().
+   */
   async start(
     action: ActionType,
-    id_user: string,
+    reqOrActor: ExpressRequest | LoggedUser | 'SYSTEM',
     extra?: Omit<CreateLogInput, 'action_type' | 'id_user' | 'status'>,
   ) {
-    return this.create({
-      action_type: action,
-      id_user,
-      status: 'PENDING',
-      ...extra,
+    // Resolve actor and create a PENDING log, returning both log and loggedUser.
+    const resolved = await this.resolveActor(reqOrActor);
+    const actorId = resolved.actorId;
+    const loggedUser = resolved.loggedUser;
+    if (!actorId) {
+      throw new BadRequestException('Unable to determine actor id for ActionLog after resolution.');
+    }
+
+    const log = await this.prisma.actionLog.create({
+      data: {
+        action_type: action,
+        id_user: actorId,
+        status: 'PENDING',
+        target_table: extra?.target_table ?? null,
+        target_id: extra?.target_id ?? null,
+        id_family: extra?.id_family ?? null,
+        id_transaction: extra?.id_transaction ?? null,
+        message: extra?.message ?? null,
+        requestId: extra?.requestId ?? null,
+        ip: extra?.ip ?? null,
+        userAgent: extra?.userAgent ?? null,
+        metadata: extra?.metadata ?? undefined,
+      },
     });
+
+    return { log, loggedUser };
+  }
+
+  /**
+   * Start an action log and also return the resolved loggedUser (when applicable).
+   * This is a convenience wrapper used by services that both need a pending log
+   * and the decoded user payload. It centralizes token decoding and avoids
+   * letting services call getDataFromToken themselves.
+   */
+  async startWithActor(
+    action: ActionType,
+    reqOrActor: ExpressRequest | LoggedUser | 'SYSTEM',
+    extra?: Omit<CreateLogInput, 'action_type' | 'id_user' | 'status'>,
+  ) {
+    // Deprecated: delegate to start
+    return this.start(action, reqOrActor, extra);
   }
 
   /** Marca log en SUCCESS y opcionalmente acumula metadata */
@@ -203,14 +291,14 @@ export class ActionLogsService {
 
   /** Flujo completo de “Actualizar balances” (ejemplo de uso del servicio) */
   async runMonthlyBalanceUpdate(
-    actorUserId: string,
+    reqOrActor: ExpressRequest | 'SYSTEM',
     opts?: { requestId?: string; metadata?: Prisma.JsonValue },
   ) {
     // 1) Validación lógica previa (la BD puede tener además un índice único parcial)
     await this.assertBalanceUpdateNotRunThisMonth();
 
     // 2) Registrar inicio
-    const log = await this.start(ActionType.BALANCE_UPDATE, actorUserId, {
+    const { log } = await this.start(ActionType.BALANCE_UPDATE, reqOrActor, {
       requestId: opts?.requestId ?? null,
       metadata: opts?.metadata ?? null,
       message: 'Inicio de actualización mensual de balances',

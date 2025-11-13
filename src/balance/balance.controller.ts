@@ -11,6 +11,7 @@ import {
   HttpStatus,
   Req,
 } from '@nestjs/common';
+import { Request as ExpressRequest } from 'express';
 import { BalanceService } from './balance.service';
 import { CreateBalanceDTO, UpdateBalanceDTO } from './dto/balance.dto';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
@@ -25,21 +26,21 @@ export class BalanceController {
   @Get()
   @Roles('MASTER', 'DIRIGENTE')
   @HttpCode(HttpStatus.OK)
-  async getAllBalances(@Req() req: any) {
+  async getAllBalances(@Req() req: ExpressRequest) {
     return await this.balanceService.getAllBalances(req);
   }
 
   @Get(':id')
   @Roles('MASTER', 'DIRIGENTE', 'FAMILY', 'BENEFICIARIO')
   @HttpCode(HttpStatus.OK)
-  async getBalanceById(@Param('id') id: string, @Req() req: any) {
+  async getBalanceById(@Param('id') id: string, @Req() req: ExpressRequest) {
     return await this.balanceService.getById(id, req);
   }
 
   @Post()
   @Roles('MASTER')
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body() body: CreateBalanceDTO, @Req() req: any) {
+  async create(@Body() body: CreateBalanceDTO, @Req() req: ExpressRequest) {
     return await this.balanceService.create(body, req);
   }
 
@@ -49,14 +50,14 @@ export class BalanceController {
   async update(
     @Param('id') id: string,
     @Body() body: UpdateBalanceDTO,
-    @Req() req: any,
+  @Req() req: ExpressRequest,
   ) {
     return await this.balanceService.update(id, body, req);
   }
   @Post('/reset-all')
   @Roles('MASTER')
   @HttpCode(HttpStatus.OK)
-  async ResetAll(@Req() req: any) {
+  async ResetAll(@Req() req: ExpressRequest) {
     return await this.balanceService.resetAll(req);
   }
   @Post('/update-family/:id')
@@ -68,14 +69,14 @@ export class BalanceController {
   @Post('/update-all')
   @Roles('MASTER')
   @HttpCode(HttpStatus.OK)
-  async UpdateAll(@Req() req: any) {
+  async UpdateAll(@Req() req: ExpressRequest) {
     return await this.balanceService.updateAll(req);
   }
 
   @Delete(':id')
   @Roles('MASTER')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async delete(@Param('id') id: string, @Req() req: any) {
+  async delete(@Param('id') id: string, @Req() req: ExpressRequest) {
     await this.balanceService.delete(id, req);
     return;
   }

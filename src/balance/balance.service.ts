@@ -12,8 +12,9 @@ import { PrismaService } from 'src/prisma.service';
 import { startOfMonth, endOfMonth } from 'date-fns';
 import { AuthService } from 'src/auth/auth.service';
 import { ActionLogsService } from 'src/action-logs/action-logs.service';
-import { ActionType } from '@prisma/client';
+import { ActionType, ActionTargetTable } from '@prisma/client';
 import { Request as ExpressRequest } from 'express';
+import { extractLoggedUser } from 'src/auth/request.util';
 @Injectable()
 export class BalanceService {
   private readonly logger = new Logger(BalanceService.name);
@@ -23,25 +24,11 @@ export class BalanceService {
     private authService: AuthService,
     private actionLogsService: ActionLogsService,
   ) {}
-  private async resolveActor(reqOrActor?: ExpressRequest | string) {
-    let actorId: string | undefined = undefined;
-    let loggedUser: any = undefined;
-    if (typeof reqOrActor === 'string') {
-      actorId = reqOrActor;
-    } else if (reqOrActor) {
-      const tokenData = await this.authService.getDataFromToken(reqOrActor as ExpressRequest);
-      loggedUser = tokenData;
-      actorId = tokenData?.id;
-    }
-    return { actorId, loggedUser };
-  }
-  public async getAllBalances(loggedUser: any, actorId?: string) {
+  // Actor resolution is centralized in ActionLogsService; services should pass reqOrActor to start()/create() and
+  // reuse the returned log.id_user when they need the actor id.
+  public async getAllBalances(reqOrActor?: ExpressRequest | 'SYSTEM') {
     try {
-      // support passing reqOrActor for backward compatibility
-      if (typeof (loggedUser as any) !== 'object' && loggedUser !== undefined) {
-        const { loggedUser: lu } = await this.resolveActor(loggedUser as any);
-        loggedUser = lu;
-      }
+      const loggedUser = extractLoggedUser(reqOrActor);
       const where = this.roleFilterService.apply(loggedUser);
       return await this.prisma.balance.findMany({
         where,
@@ -55,8 +42,7 @@ export class BalanceService {
     }
   }
 
-  public async getById(id: string, reqOrActor?: ExpressRequest | string) {
-    const { loggedUser } = await this.resolveActor(reqOrActor as any);
+  public async getById(id: string, reqOrActor?: ExpressRequest | 'SYSTEM') {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
@@ -87,12 +73,12 @@ export class BalanceService {
     }
   }
 
-  public async create(data: CreateBalanceDTO, reqOrActor?: ExpressRequest | string) {
-    const { actorId } = await this.resolveActor(reqOrActor as any);
+  public async create(data: CreateBalanceDTO, reqOrActor?: ExpressRequest | 'SYSTEM') {
     try {
-      const log = await this.actionLogsService.start(
+      // Let ActionLogsService resolve the actor from the request (or accept 'SYSTEM')
+      const { log } = await this.actionLogsService.start(
         ActionType.BALANCE_CREATE,
-        actorId ?? 'system',
+        reqOrActor ?? 'SYSTEM',
         { metadata: { action: 'create_balance', payload: { ...data } } },
       );
 
@@ -118,9 +104,9 @@ export class BalanceService {
     }
   }
 
-  public async update(id: string, data: UpdateBalanceDTO, reqOrActor?: ExpressRequest | string) {
+  public async update(id: string, data: UpdateBalanceDTO, reqOrActor?: ExpressRequest | 'SYSTEM') {
     let log: any = null;
-    const { loggedUser, actorId } = await this.resolveActor(reqOrActor as any);
+    // Start the action log and let ActionLogsService resolve the actor
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
@@ -128,13 +114,14 @@ export class BalanceService {
       await this.getById(id, reqOrActor as any);
 
       // start action log for single balance update
-      log = await this.actionLogsService.start(
+      const startRes = await this.actionLogsService.start(
         ActionType.BALANCE_UPDATE,
-        actorId ?? loggedUser?.id ?? 'system',
+        reqOrActor ?? 'SYSTEM',
         { metadata: { action: 'update_balance', targetId: id, payload: { ...data } } },
       );
+      log = startRes.log;
 
-      this.logger.log('Actualizando balance con data: ' + JSON.stringify(data));
+      this.logger.debug('Actualizando balance con data: ' + JSON.stringify(data));
       const updated = await this.prisma.balance.update({
         where: {
           id: id,
@@ -164,15 +151,15 @@ export class BalanceService {
       throw new InternalServerErrorException('Error al actualizar el balance');
     }
   }
-  public async resetAll(reqOrActor?: ExpressRequest | string) {
+  public async resetAll(reqOrActor?: ExpressRequest | 'SYSTEM') {
     let log: any = null;
     try {
-      const { actorId } = await this.resolveActor(reqOrActor as any);
-      log = await this.actionLogsService.start(
+      const startRes = await this.actionLogsService.start(
         ActionType.BALANCE_UPDATE,
-        actorId ?? 'system',
+        reqOrActor ?? 'SYSTEM',
         { metadata: { action: 'reset_all_balances' } },
       );
+      log = startRes.log;
 
       await this.prisma.balance.updateMany({
         data: { value: 0 },
@@ -193,18 +180,12 @@ export class BalanceService {
       throw new InternalServerErrorException('Error al actualizar el balance');
     }
   }
-  public async updateAll(reqOrActor?: ExpressRequest | string) {
+  public async updateAll(reqOrActor?: ExpressRequest | 'SYSTEM') {
     const now = new Date();
     const from = startOfMonth(now);
     const to = endOfMonth(now);
-    // support passing either the Express request (controller flow) or an actorId string (cron/manual flow)
-    let actorId: string | undefined;
-    if (typeof reqOrActor === 'string') {
-      actorId = reqOrActor;
-    } else if (reqOrActor) {
-      const tokenData = await this.authService.getDataFromToken(reqOrActor as ExpressRequest);
-      actorId = tokenData?.id;
-    }
+    // support passing either the Express request (controller flow) or the literal 'SYSTEM'
+    // Do not resolve actor here; just check existing logs for the month range.
     const already = await this.prisma.actionLog.findFirst({
       where: {
         action_type: ActionType.BALANCE_UPDATE_ALL,
@@ -217,10 +198,9 @@ export class BalanceService {
         `La actualización de balances ya se ejecutó este mes (${already.createdAt.toISOString()}).`,
       );
     }
-
-    const log = await this.actionLogsService.start(
+    const { log } = await this.actionLogsService.start(
       ActionType.BALANCE_UPDATE_ALL,
-      actorId ?? 'system',
+      reqOrActor ?? 'SYSTEM',
       { metadata: { notes: 'Inicio de actualización mensual' } },
     );
     try {
@@ -233,7 +213,7 @@ export class BalanceService {
       const activeFamilies = families.filter(
         (f) => f.users.filter((u) => u.is_active && !u.is_granted).length > 0,
       ); //  para que una familia se considere activa tiene que tener por lo menos un usuario activo.
-      this.logger.log(
+      this.logger.debug(
         `Actualizando balances de ${activeFamilies.length} familias`,
       );
       let successCount = 0;
@@ -275,13 +255,13 @@ export class BalanceService {
     }
   }
 
-  public async delete(id: string, loggedUser: any, actorId?: string) {
+  public async delete(id: string, reqOrActor?: ExpressRequest | 'SYSTEM') {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
       // Verificar que el balance existe
-      await this.getById(id, loggedUser);
+      await this.getById(id, reqOrActor);
 
       return await this.prisma.balance.delete({
         where: {
@@ -315,55 +295,85 @@ export class BalanceService {
     }
   }
 
-  public async updateBalanceForFamily(familyId: string): Promise<Family> {
-    // 1. Obtener la familia con usuarios y balance
-    const family = await this.prisma.family.findUnique({
-      where: { id: familyId },
-      include: {
-        users: true,
-        balance: true,
-      },
-    });
-    if (!family) throw new Error('Familia no encontrada');
+  public async updateBalanceForFamily(familyId: string, reqOrActor?: ExpressRequest | 'SYSTEM'): Promise<Family> {
+    let log: any = null;
+    try {
+      // 1. Obtener la familia con usuarios y balance
+      const family = await this.prisma.family.findUnique({
+        where: { id: familyId },
+        include: {
+          users: true,
+          balance: true,
+        },
+      });
+      if (!family) throw new Error('Familia no encontrada');
 
-    const familyBalance = await this.prisma.balance.findUnique({
-      where: {
-        id: family.id_balance,
-      },
-    });
-    if (!familyBalance)
-      throw new Error(`Balance de la Familia ${family.name} no encontrado`);
-    let cuotaValue = 0;
-    // 1b. Si la familia tiene una cuota personalizada, se usa el valor personalizado
-    if (familyBalance.is_custom_cuota) {
-      cuotaValue = familyBalance.custom_cuota;
-    } else {
-      // 2. Contar usuarios activos
-      const usersCount = family.users.filter(
-        (u) => u.is_active && !u.is_granted,
-      ).length;
+      const familyBalance = await this.prisma.balance.findUnique({
+        where: {
+          id: family.id_balance,
+        },
+      });
+      if (!familyBalance)
+        throw new Error(`Balance de la Familia ${family.name} no encontrado`);
+      let cuotaValue = 0;
+      // 1b. Si la familia tiene una cuota personalizada, se usa el valor personalizado
+      if (familyBalance.is_custom_cuota) {
+        cuotaValue = familyBalance.custom_cuota;
+      } else {
+        // 2. Contar usuarios activos
+        const usersCount = family.users.filter(
+          (u) => u.is_active && !u.is_granted,
+        ).length;
 
-      // 3. Buscar el valor de cuota según cantidad de usuarios activos
-      const CPH = await this.prisma.cuotaPorHermanos.findFirst({
-        where: { cantidad: usersCount },
+        // 3. Buscar el valor de cuota según cantidad de usuarios activos
+        const CPH = await this.prisma.cuotaPorHermanos.findFirst({
+          where: { cantidad: usersCount },
+        });
+
+        // Si no hay configuración, usar un valor por defecto (ejemplo: 0)
+        cuotaValue = CPH?.valor ?? 0;
+      }
+
+      // Start an ActionLog for this family's balance update
+      const startRes = await this.actionLogsService.start(
+        ActionType.BALANCE_UPDATE_FAMILY,
+        reqOrActor ?? 'SYSTEM',
+        {
+          target_table: ActionTargetTable.FAMILY,
+          target_id: family.id,
+          metadata: { action: 'update_balance_for_family', familyId },
+        },
+      );
+      log = startRes.log;
+
+      // 5. Actualizar el balance
+      const oldBalance = familyBalance.value;
+      const newBalance = oldBalance - cuotaValue;
+      await this.prisma.balance.update({
+        where: { id: family.balance.id },
+        data: { value: newBalance, previousValue: oldBalance },
       });
 
-      // Si no hay configuración, usar un valor por defecto (ejemplo: 0)
-      cuotaValue = CPH?.valor ?? 0;
+      await this.actionLogsService.markSuccess(log.id, 'Balance actualizado para familia', {
+        familyId: family.id,
+        familyName: family.name,
+        oldValue: oldBalance,
+        newValue: newBalance,
+        cuotaApplied: cuotaValue,
+      });
+
+      this.logger.debug(
+        `Balance actualizado para familia ${family.name}: $${family.balance.value} -> $${newBalance} (Cuota aplicada: $${cuotaValue})`,
+      );
+
+      return family;
+    } catch (error) {
+      if (log && log.id) {
+        try {
+          await this.actionLogsService.markError(log.id, error as Error);
+        } catch {}
+      }
+      throw error;
     }
-
-    // 5. Actualizar el balance
-    const oldBalance = familyBalance.value;
-    const newBalance = oldBalance - cuotaValue;
-    await this.prisma.balance.update({
-      where: { id: family.balance.id },
-      data: { value: newBalance, previousValue: oldBalance },
-    });
-
-    this.logger.log(
-      `Balance actualizado para familia ${family.name}: $${family.balance.value} -> $${newBalance} (Cuota aplicada: $${cuotaValue})`,
-    );
-
-    return family;
   }
 }

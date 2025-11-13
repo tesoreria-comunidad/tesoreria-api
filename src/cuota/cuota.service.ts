@@ -19,25 +19,8 @@ export class CuotaService {
     private actionLogsService: ActionLogsService,
     private authService: AuthService,
   ) {}
-  private async resolveActor(reqOrActor?: ExpressRequest | string) {
-    let actorId: string | undefined = undefined;
-    let loggedUser: any = undefined;
-    if (typeof reqOrActor === 'string') {
-      actorId = reqOrActor;
-    } else if (reqOrActor) {
-      const tokenData = await this.authService.getDataFromToken(reqOrActor as ExpressRequest);
-      loggedUser = tokenData;
-      actorId = tokenData?.id;
-    }
-    return { actorId, loggedUser };
-  }
-  public async getAllCuota(loggedUser: any, actorId?: string) {
+  public async getAllCuota(reqOrActor?: ExpressRequest | 'SYSTEM') {
     try {
-      // backward compatible signature: if reqOrActor was passed instead of loggedUser
-      if (typeof (loggedUser as any) !== 'object' && loggedUser !== undefined) {
-        const { loggedUser: lu } = await this.resolveActor(loggedUser as any);
-        loggedUser = lu;
-      }
       return await this.prisma.cuota.findMany();
     } catch (error) {
       console.log('Error al obtener las cuotas:', error);
@@ -45,13 +28,12 @@ export class CuotaService {
     }
   }
 
-  public async getById(id: string, reqOrActor?: ExpressRequest | string) {
-    const { loggedUser } = await this.resolveActor(reqOrActor as any);
+  public async getById(id: string, reqOrActor?: ExpressRequest | 'SYSTEM') {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-      const cuota = await this.prisma.cuota.findFirst();
+      const cuota = await this.prisma.cuota.findFirst({ where: { id } });
 
       if (!cuota) {
         throw new NotFoundException(`Cuota con ID ${id} no encontrada`);
@@ -70,8 +52,7 @@ export class CuotaService {
     }
   }
 
-  public async create(data: CreateCuotaDTO, reqOrActor?: ExpressRequest | string) {
-    const { actorId } = await this.resolveActor(reqOrActor as any);
+  public async create(data: CreateCuotaDTO, reqOrActor?: ExpressRequest | 'SYSTEM') {
     try {
       if (data.value < 0) {
         throw new BadRequestException('Los montos no pueden ser negativos');
@@ -86,9 +67,9 @@ export class CuotaService {
         });
       }
 
-      const log = await this.actionLogsService.start(
+      const { log } = await this.actionLogsService.start(
         ActionType.CUOTA_CREATE,
-        actorId ?? 'system',
+        reqOrActor ?? 'SYSTEM',
         {
           target_table: ActionTargetTable.CUOTA,
           metadata: { action: 'create_cuota', payload: { ...data } },
@@ -117,15 +98,14 @@ export class CuotaService {
   public async update(
     id: string,
     data: UpdateCuotaDTO,
-    reqOrActor?: ExpressRequest | string,
+    reqOrActor?: ExpressRequest | 'SYSTEM',
   ) {
-    const { loggedUser, actorId } = await this.resolveActor(reqOrActor as any);
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
       // Verificar que la cuota existe
-      await this.getById(id, reqOrActor as any);
+      await this.getById(id, reqOrActor);
 
       if (data.value !== undefined && data.value < 0) {
         throw new BadRequestException(
@@ -137,9 +117,9 @@ export class CuotaService {
         throw new BadRequestException('El monto de CFA no puede ser negativo');
       }
 
-      const log = await this.actionLogsService.start(
+      const { log } = await this.actionLogsService.start(
         ActionType.CUOTA_UPDATE,
-        actorId ?? 'system',
+          reqOrActor ?? 'SYSTEM',
         {
           target_table: ActionTargetTable.CUOTA,
           target_id: id,
@@ -168,18 +148,17 @@ export class CuotaService {
     }
   }
 
-  public async delete(id: string, reqOrActor?: ExpressRequest | string) {
-    const { loggedUser, actorId } = await this.resolveActor(reqOrActor as any);
+  public async delete(id: string, reqOrActor?: ExpressRequest | 'SYSTEM') {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
       // Verificar que la cuota existe
-      await this.getById(id, reqOrActor as any);
+      await this.getById(id, reqOrActor);
 
-      const log = await this.actionLogsService.start(
+      const { log } = await this.actionLogsService.start(
         ActionType.CUOTA_DELETE,
-        actorId ?? 'system',
+          reqOrActor ?? 'SYSTEM',
         {
           target_table: ActionTargetTable.CUOTA,
           target_id: id,
