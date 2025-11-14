@@ -10,20 +10,23 @@ import { RoleFilterService } from 'src/services/RoleFilter.service';
 import { log } from 'console';
 import { ActionLogsService } from 'src/action-logs/action-logs.service';
 import { ActionType, ActionTargetTable } from '@prisma/client';
+import { Request as ExpressRequest } from 'express';
+
+type RequestWithUser = ExpressRequest & { user?: any };
 
 @Injectable()
 export class PaymentsService {
     constructor(
         private prisma: PrismaService,
         private roleFilterService: RoleFilterService,
-        private actionLogsService: ActionLogsService,
+            private actionLogsService: ActionLogsService,
     ) { }
+            // actor resolution centralized in ActionLogsService
 
-    async create(data: CreatePaymentDto, loggedUser?: any, actorId?: string) {
-        const userId = (actorId as string) ?? (loggedUser?.id as string);
-        const log = await this.actionLogsService.start(
+    async create(data: CreatePaymentDto, reqOrActor?: ExpressRequest | 'SYSTEM') {
+    const { log, loggedUser } = await this.actionLogsService.start(
             ActionType.PAYMENT_CREATE,
-            userId,
+            reqOrActor ?? 'SYSTEM',
             { target_table: ActionTargetTable.TRANSACTIONS },
         );
 
@@ -41,9 +44,10 @@ export class PaymentsService {
         }
     }
 
-    async findAll(loggedUser, actorId?: string) {
+    async findAll(reqOrActor?: ExpressRequest | 'SYSTEM') {
+    const loggedUser = reqOrActor && typeof reqOrActor !== 'string' ? (reqOrActor as any).user : undefined;
         try {
-            const where  =this.roleFilterService.apply(loggedUser);
+            const where  = this.roleFilterService.apply(loggedUser);
             return await this.prisma.payment.findMany();
         } catch (error) {
             console.log('Error al obtener los pagos', error);
@@ -51,7 +55,8 @@ export class PaymentsService {
         }
     }
 
-    async findOne(id: string, loggedUser: any, actorId?: string) {
+    async findOne(id: string, reqOrActor?: ExpressRequest | 'SYSTEM') {
+    const loggedUser = reqOrActor && typeof reqOrActor !== 'string' ? (reqOrActor as any).user : undefined;
         try {
             if (!id) throw new BadRequestException('ID es requerido');
             const where = this.roleFilterService.apply(loggedUser);
@@ -69,11 +74,10 @@ export class PaymentsService {
         }
     }
 
-    async update(id: string, data: UpdatePaymentDto, loggedUser: any, actorId?: string) {
-        const userId = (actorId as string) ?? (loggedUser?.id as string);
-        const log = await this.actionLogsService.start(
+    async update(id: string, data: UpdatePaymentDto, reqOrActor?: ExpressRequest | 'SYSTEM') {
+    const { log, loggedUser } = await this.actionLogsService.start(
             ActionType.PAYMENT_UPDATE,
-            userId,
+            reqOrActor ?? 'SYSTEM',
             { target_table: ActionTargetTable.TRANSACTIONS, target_id: id },
         );
 
@@ -81,7 +85,7 @@ export class PaymentsService {
             if (!id) throw new BadRequestException('ID es requerido');
             const where = this.roleFilterService.apply(loggedUser);
             // Verificamos que exista
-            await this.findOne(id, loggedUser);
+            await this.findOne(id, reqOrActor);
 
             const updated = await this.prisma.payment.update({ where, data });
 
@@ -102,11 +106,10 @@ export class PaymentsService {
         }
     }
 
-    async remove(id: string, loggedUser: any, actorId?: string) {
-        const userId = (actorId as string) ?? (loggedUser?.id as string);
-        const log = await this.actionLogsService.start(
+    async remove(id: string, reqOrActor?: ExpressRequest | 'SYSTEM') {
+    const { log, loggedUser } = await this.actionLogsService.start(
             ActionType.PAYMENT_DELETE,
-            userId,
+            reqOrActor ?? 'SYSTEM',
             { target_table: ActionTargetTable.TRANSACTIONS, target_id: id },
         );
 
@@ -114,7 +117,7 @@ export class PaymentsService {
             if (!id) throw new BadRequestException('ID es requerido');
             const where = this.roleFilterService.apply(loggedUser)
             // Verificamos que exista
-            const existing = await this.findOne(id, loggedUser);
+            const existing = await this.findOne(id, reqOrActor);
 
             const deleted = await this.prisma.payment.delete({ where });
 

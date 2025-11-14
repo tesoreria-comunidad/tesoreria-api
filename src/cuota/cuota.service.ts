@@ -9,14 +9,17 @@ import { CreateCuotaDTO, UpdateCuotaDTO } from './dto/cuota.dto';
 import { PrismaService } from 'src/prisma.service';
 import { ActionLogsService } from 'src/action-logs/action-logs.service';
 import { ActionType, ActionTargetTable } from '@prisma/client';
+import { Request as ExpressRequest } from 'express';
+import { AuthService } from 'src/auth/auth.service';
 
 @Injectable()
 export class CuotaService {
   constructor(
     private prisma: PrismaService,
     private actionLogsService: ActionLogsService,
+    private authService: AuthService,
   ) {}
-  public async getAllCuota(loggedUser: any, actorId?: string) {
+  public async getAllCuota(reqOrActor?: ExpressRequest | 'SYSTEM') {
     try {
       return await this.prisma.cuota.findMany();
     } catch (error) {
@@ -25,12 +28,12 @@ export class CuotaService {
     }
   }
 
-  public async getById(id: string, loggedUser: any, actorId?: string) {
+  public async getById(id: string, reqOrActor?: ExpressRequest | 'SYSTEM') {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-      const cuota = await this.prisma.cuota.findFirst();
+      const cuota = await this.prisma.cuota.findFirst({ where: { id } });
 
       if (!cuota) {
         throw new NotFoundException(`Cuota con ID ${id} no encontrada`);
@@ -49,7 +52,7 @@ export class CuotaService {
     }
   }
 
-  public async create(data: CreateCuotaDTO, actorId?: string) {
+  public async create(data: CreateCuotaDTO, reqOrActor?: ExpressRequest | 'SYSTEM') {
     try {
       if (data.value < 0) {
         throw new BadRequestException('Los montos no pueden ser negativos');
@@ -64,9 +67,9 @@ export class CuotaService {
         });
       }
 
-      const log = await this.actionLogsService.start(
+      const { log } = await this.actionLogsService.start(
         ActionType.CUOTA_CREATE,
-        actorId ?? 'system',
+        reqOrActor ?? 'SYSTEM',
         {
           target_table: ActionTargetTable.CUOTA,
           metadata: { action: 'create_cuota', payload: { ...data } },
@@ -95,15 +98,14 @@ export class CuotaService {
   public async update(
     id: string,
     data: UpdateCuotaDTO,
-    loggedUser: any,
-    actorId?: string,
+    reqOrActor?: ExpressRequest | 'SYSTEM',
   ) {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
       // Verificar que la cuota existe
-      await this.getById(id, loggedUser);
+      await this.getById(id, reqOrActor);
 
       if (data.value !== undefined && data.value < 0) {
         throw new BadRequestException(
@@ -115,9 +117,9 @@ export class CuotaService {
         throw new BadRequestException('El monto de CFA no puede ser negativo');
       }
 
-      const log = await this.actionLogsService.start(
+      const { log } = await this.actionLogsService.start(
         ActionType.CUOTA_UPDATE,
-        actorId ?? 'system',
+          reqOrActor ?? 'SYSTEM',
         {
           target_table: ActionTargetTable.CUOTA,
           target_id: id,
@@ -146,17 +148,17 @@ export class CuotaService {
     }
   }
 
-  public async delete(id: string, loggedUser: any, actorId?: string) {
+  public async delete(id: string, reqOrActor?: ExpressRequest | 'SYSTEM') {
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
       // Verificar que la cuota existe
-      await this.getById(id, loggedUser);
+      await this.getById(id, reqOrActor);
 
-      const log = await this.actionLogsService.start(
+      const { log } = await this.actionLogsService.start(
         ActionType.CUOTA_DELETE,
-        actorId ?? 'system',
+          reqOrActor ?? 'SYSTEM',
         {
           target_table: ActionTargetTable.CUOTA,
           target_id: id,

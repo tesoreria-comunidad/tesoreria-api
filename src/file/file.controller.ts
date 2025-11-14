@@ -2,7 +2,7 @@ import {
   Body,
   Controller,
   Post,
-  Request,
+  Req,
   UnauthorizedException,
   UploadedFile,
   UseInterceptors,
@@ -21,9 +21,9 @@ export class FileController {
   @UseInterceptors(FileInterceptor('file'))
   async uploadFile(
     @UploadedFile() file: Express.Multer.File,
-    @Request() req: any,
+    @Req() req: ExpressRequest,
   ) {
     // AuthGuard ensures req.user is available
-    return await this.fileService.upload(file, req.user?.id);
+    return await this.fileService.upload(file, req);
   }
 }
