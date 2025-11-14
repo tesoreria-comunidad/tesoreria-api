@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Post, Request } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req } from '@nestjs/common';
+import { Request as ExpressRequest } from 'express';
 import { ActionLogsService } from './action-logs.service';
 import { CreateActionLogDto, CreateActionLogSchema } from './dto';
 
@@ -11,11 +12,8 @@ export class ActionLogsController {
     return await this.logService.getAll();
   }
   @Post()
-  async create(@Body() body: CreateActionLogDto, @Request() req: any) {
-    // If caller doesn't provide id_user, default to the authenticated user if available
-    if (!body.id_user && req?.user?.id) {
-      (body as any).id_user = req.user.id;
-    }
-    return this.logService.create(body as any);
+  async create(@Body() body: CreateActionLogDto, @Req() req: ExpressRequest) {
+    // Do not decode token in controller; let the service resolve actor when possible.
+    return this.logService.create(body as any, req);
   }
 }

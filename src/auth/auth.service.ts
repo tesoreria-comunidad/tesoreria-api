@@ -6,8 +6,8 @@ import {
 import { User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
-import { UserService } from 'src/user/user.service';
 import { Request } from 'express';
+import { PrismaService } from 'src/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { IPayloadToken } from './schemas/auth.schemas';
 import { CreateUserDTO } from 'src/user/dto/user.dto';
@@ -15,24 +15,40 @@ import { Request as ExpressRequest } from 'express';
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly userService: UserService,
+    private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
   ) {}
 
   public async register(data: CreateUserDTO, req: ExpressRequest) {
     const { id } = await this.getDataFromToken(req);
-    return await this.userService.create(data, id);
+    // minimal create via prisma to avoid circular dependency with user service
+    const createData = {
+      username: data.username,
+      password: data.password,
+      name: data.name,
+      last_name: data.last_name,
+      role: data.role,
+      id_folder: data.id_folder ?? null,
+      id_rama: data.id_rama ?? null,
+      address: data.address ?? null,
+      phone: data.phone ?? null,
+      email: data.email ?? null,
+      gender: data.gender ?? null,
+      dni: data.dni ?? null,
+      id_family: data.id_family ?? null,
+      birthdate: data.birthdate ?? null,
+      citizenship: data.citizenship ?? null,
+      family_role: data.family_role ?? undefined,
+    };
+    const created = await this.prisma.user.create({ data: createData });
+    return created;
   }
   public async validateUser(username: string, password: string) {
-    const userByUsername = await this.userService.findByInternal({
-      username,
-    });
+    const userByUsername = await this.prisma.user.findFirst({ where: { username } });
     if (userByUsername) {
       const match = await bcrypt.compare(password, userByUsername.password);
-
       if (match) return userByUsername;
     }
-
     return null;
   }
   public signJWT({
@@ -45,7 +61,7 @@ export class AuthService {
     return jwt.sign(payload, secret, { expiresIn: '7d' });
   }
   public async generateJWT(userData: User) {
-    const user = await this.userService.getByIdInternal(userData.id);
+    const user = await this.prisma.user.findUnique({ where: { id: userData.id } });
     if (!user) {
       throw new NotFoundException('User not found');
     }
@@ -66,13 +82,13 @@ export class AuthService {
     const [type, token] = request.headers.authorization?.split(' ') ?? [];
     if (!token) throw new UnauthorizedException();
     try {
-      const payload = await this.jwtService.verifyAsync(token, {
+      const payload = (await this.jwtService.verifyAsync(token, {
         secret: process.env.JWTKEY,
-      });
+      })) as IPayloadToken;
       if (!payload) {
         throw new NotFoundException('Tenant does not exist');
       }
-      const user = await this.userService.getByIdInternal((payload as any).id);
+      const user = await this.prisma.user.findUnique({ where: { id: payload.id } });
       if (!user) throw new NotFoundException('User does not exist');
       return user;
     } catch (error) {
@@ -83,11 +99,11 @@ export class AuthService {
     const [type, token] = request.headers.authorization?.split(' ') ?? [];
     if (!token) throw new UnauthorizedException('Invalid token');
     try {
-      const payload: IPayloadToken = await this.jwtService.verifyAsync(token, {
+      const payload = (await this.jwtService.verifyAsync(token, {
         secret: process.env.JWTKEY,
-      });
+      })) as IPayloadToken;
 
-      const user = await this.userService.getByIdInternal((payload as any).id);
+      const user = await this.prisma.user.findUnique({ where: { id: payload.id } });
       if (!user) {
         throw new NotFoundException('Tenant is not defined');
       }

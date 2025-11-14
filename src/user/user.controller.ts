@@ -12,8 +12,9 @@ import {
   Query,
   HttpCode,
   HttpStatus,
-  Request,
+  Req,
 } from '@nestjs/common';
+import { Request as ExpressRequest } from 'express';
 import { UserService } from './user.service';
 import {
   UpdateUserDTO,
@@ -32,8 +33,8 @@ export class UserController {
   @Get()
   @HttpCode(HttpStatus.OK)
   @Roles('MASTER', 'DIRIGENTE')
-  async getAllUsers() {
-    return await this.userService.getAllUser();
+  async getAllUsers(@Req() req: ExpressRequest) {
+    return await this.userService.getAllUser(req);
   }
 
   @Get('/by-rama/:id_rama')
@@ -43,14 +44,14 @@ export class UserController {
 
   @Get(':id')
   @Roles('MASTER', 'DIRIGENTE')
-  async getUserById(@Param('id') id: string, @Request() req: any) {
-    return await this.userService.getById(id, req.user, req.user?.id);
+  async getUserById(@Param('id') id: string, @Req() req: ExpressRequest) {
+    return await this.userService.getById(id, req);
   }
 
   @Post()
   @Roles('MASTER', 'DIRIGENTE')
-  async createUser(@Body() body: CreateUserDTO, @Request() req: any) {
-    return await this.userService.create(body, req.user?.id);
+  async createUser(@Body() body: CreateUserDTO, @Req() req: ExpressRequest) {
+    return await this.userService.create(body, req);
   }
 
   @Patch(':id')
@@ -58,25 +59,24 @@ export class UserController {
   async update(
     @Param('id') id: string,
     @Body() body: UpdateUserDTO,
-    @Request() req: any,
+    @Req() req: ExpressRequest,
   ) {
-    return await this.userService.update(id, body, req.user, req.user?.id);
+    return await this.userService.update(id, body, req);
   }
 
   @Delete(':id')
   @Roles('MASTER', 'DIRIGENTE')
-  async deleteUser(@Param('id') id: string, @Request() req: any) {
+  async deleteUser(@Param('id') id: string, @Req() req: ExpressRequest) {
     try {
       const existingUser = await this.userService.getById(
         id,
-        req.user,
-        req.user?.id,
+        req,
       );
       if (!existingUser) {
         throw new NotFoundException('Usuario no encontrado');
       }
 
-      return await this.userService.delete(id, req.user, req.user?.id);
+      return await this.userService.delete(id, req);
     } catch (error) {
       throw error;
     }
@@ -87,7 +87,7 @@ export class UserController {
   async bulkCreateUsers(
     @Body() body: { users: BulkCreateUserDTO[] },
     @Query() query: { id_rama: string },
-    @Request() req: any,
+    @Req() req: ExpressRequest,
   ) {
     const { users } = body;
     const { id_rama } = query;
@@ -124,25 +124,16 @@ export class UserController {
       }
     }
 
-    return await this.userService.bulkCreate(
-      users,
-      id_rama,
-      req.user,
-      req.user?.id,
-    );
+    return await this.userService.bulkCreate(users, id_rama, req);
   }
   @Roles('MASTER', 'DIRIGENTE')
   @Get('family/:familyId')
   @HttpCode(HttpStatus.OK)
   async getUsersByFamily(
     @Param('familyId') familyId: string,
-    @Request() req: any,
+    @Req() req: ExpressRequest,
   ) {
-    return await this.userService.getUsersByFamily(
-      familyId,
-      req.user,
-      req.user?.id,
-    );
+    return await this.userService.getUsersByFamily(familyId, req);
   }
 
   @Roles('MASTER', 'DIRIGENTE')
@@ -150,13 +141,9 @@ export class UserController {
   @HttpCode(HttpStatus.OK)
   async getFamilyAdmin(
     @Param('familyId') familyId: string,
-    @Request() req: any,
+    @Req() req: ExpressRequest,
   ) {
-    return await this.userService.getFamilyAdmin(
-      familyId,
-      req.user,
-      req.user?.id,
-    );
+    return await this.userService.getFamilyAdmin(familyId, req);
   }
 
   @Roles('MASTER', 'DIRIGENTE')
@@ -164,13 +151,9 @@ export class UserController {
   @HttpCode(HttpStatus.OK)
   async getFamilyAdmins(
     @Param('familyId') familyId: string,
-    @Request() req: any,
+    @Req() req: ExpressRequest,
   ) {
-    return await this.userService.getFamilyAdmins(
-      familyId,
-      req.user,
-      req.user?.id,
-    );
+    return await this.userService.getFamilyAdmins(familyId, req);
   }
 
   @Roles('MASTER', 'DIRIGENTE')
@@ -179,14 +162,9 @@ export class UserController {
   async promoteToFamilyAdmin(
     @Param('familyId') familyId: string,
     @Param('userId') userId: string,
-    @Request() req: any,
+    @Req() req: ExpressRequest,
   ) {
-    return await this.userService.promoteToFamilyAdmin(
-      userId,
-      familyId,
-      req.user,
-      req.user?.id,
-    );
+    return await this.userService.promoteToFamilyAdmin(userId, familyId, req);
   }
 
   @Roles('MASTER', 'DIRIGENTE')
@@ -195,13 +173,8 @@ export class UserController {
   async demoteFromFamilyAdmin(
     @Param('familyId') familyId: string,
     @Param('userId') userId: string,
-    @Request() req: any,
+    @Req() req: ExpressRequest,
   ) {
-    return await this.userService.demoteFromFamilyAdmin(
-      userId,
-      familyId,
-      req.user,
-      req.user?.id,
-    );
+    return await this.userService.demoteFromFamilyAdmin(userId, familyId, req);
   }
 }

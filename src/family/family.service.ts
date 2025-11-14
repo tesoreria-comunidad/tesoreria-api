@@ -12,6 +12,8 @@ import { Family } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { ActionLogsService } from 'src/action-logs/action-logs.service';
 import { ActionType, ActionTargetTable } from '@prisma/client';
+import { Request as ExpressRequest } from 'express';
+import { AuthService } from 'src/auth/auth.service';
 
 @Injectable()
 export class FamilyService {
@@ -19,12 +21,14 @@ export class FamilyService {
     private prisma: PrismaService,
     private balanceService: BalanceService,
     private actionLogsService: ActionLogsService,
+    private authService: AuthService,
   ) {}
-  public async create(data: CreateFamilyDto, loggedUser?: any, actorId?: string): Promise<Family> {
-    const userActor = (actorId as string) ?? (loggedUser?.id as string);
-    const log = await this.actionLogsService.start(
+  // actor resolution centralized in ActionLogsService
+  public async create(data: CreateFamilyDto, reqOrActor?: ExpressRequest | 'SYSTEM'): Promise<Family> {
+    // Start an action log and let ActionLogsService resolve the actor from the request (or accept 'SYSTEM')
+    const { log } = await this.actionLogsService.start(
       ActionType.FAMILY_CREATE,
-      userActor,
+      reqOrActor ?? 'SYSTEM',
       { target_table: ActionTargetTable.FAMILY },
     );
 
@@ -36,7 +40,7 @@ export class FamilyService {
         custom_cfa_value: 0,
         is_custom_cuota: false,
         is_custom_cfa: false,
-      }, userActor);
+      }, reqOrActor);
 
       const balanceId = newBalance.id;
 
@@ -227,20 +231,20 @@ export class FamilyService {
     }
   }
 
-  public async update(id: string, data: UpdateFamilyDto, loggedUser?: any, actorId?: string): Promise<Family> {
-    const userActor = (actorId as string) ?? (loggedUser?.id as string);
-    const log = await this.actionLogsService.start(
+  public async update(id: string, data: UpdateFamilyDto, reqOrActor?: ExpressRequest | 'SYSTEM'): Promise<Family> {
+    const { log } = await this.actionLogsService.start(
       ActionType.FAMILY_UPDATE,
-      userActor,
+      reqOrActor ?? 'SYSTEM',
       { target_table: ActionTargetTable.FAMILY, target_id: id },
     );
+    const userActor = log.id_user ?? 'SYSTEM';
 
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
 
-      await this.findOne(id); // asegura que existe
+  await this.findOne(id); // asegura que existe
 
       const updated = await this.prisma.family.update({ where: { id }, data });
 
@@ -263,13 +267,13 @@ export class FamilyService {
     }
   }
 
-  public async remove(id: string, loggedUser?: any, actorId?: string): Promise<Family> {
-    const userActor = (actorId as string) ?? (loggedUser?.id as string);
-    const log = await this.actionLogsService.start(
+  public async remove(id: string, reqOrActor?: ExpressRequest | 'SYSTEM'): Promise<Family> {
+    const { log } = await this.actionLogsService.start(
       ActionType.FAMILY_DELETE,
-      userActor,
+      reqOrActor ?? 'SYSTEM',
       { target_table: ActionTargetTable.FAMILY, target_id: id },
     );
+    const userActor = log.id_user ?? 'SYSTEM';
 
     try {
       if (!id) {

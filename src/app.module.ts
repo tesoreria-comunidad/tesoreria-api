@@ -30,7 +30,6 @@ import { ActionLogsModule } from './action-logs/action-logs.module';
     CuotaModule,
     CuotaPorHermanosModule,
     BalanceModule,
-    UserModule,
     FamilyModule,
     PaymentsModule,
     PersonModule,
@@ -41,7 +40,7 @@ import { ActionLogsModule } from './action-logs/action-logs.module';
     CobrabilidadModule,
     ActionLogsModule,
   ],
-  controllers: [UserController],
-  providers: [UserService, PrismaService, AuthService, JwtService],
+  controllers: [],
+  providers: [],
 })
 export class AppModule {}
