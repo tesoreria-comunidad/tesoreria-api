@@ -25,7 +25,10 @@ export class TransactionsService {
     private actionLogsService: ActionLogsService,
     private authService: AuthService,
   ) {}
-  async create(data: CreateTransactionDTO, reqOrActor: ExpressRequest | 'SYSTEM') {
+  async create(
+    data: CreateTransactionDTO,
+    reqOrActor: ExpressRequest | 'SYSTEM',
+  ) {
     const { log } = await this.actionLogsService.start(
       ActionType.TRANSACTION_CREATE,
       reqOrActor,
@@ -67,10 +70,20 @@ export class TransactionsService {
     const family = await this.prisma.family.findUnique({
       where: { id: data.id_family },
     });
+
     if (!family)
       throw new NotFoundException(
         `Familia con ID ${data.id_family} no encontrada`,
       );
+
+    const { log } = await this.actionLogsService.start(
+      ActionType.TRANSACTION_CREATE,
+      reqOrActor,
+      {
+        target_table: ActionTargetTable.TRANSACTIONS,
+        id_family: data.id_family,
+      },
+    );
     try {
       const newTransactionPayload: CreateTransactionDTO = {
         amount: data.amount,
@@ -82,7 +95,7 @@ export class TransactionsService {
         concept: `Cuota familiar - ${new Date().toLocaleDateString()}`,
         description: `Cuota mensual de la familia con ID ${data.id_family}`,
       };
-  const transaction = await this.create(newTransactionPayload, reqOrActor);
+      const transaction = await this.create(newTransactionPayload, reqOrActor);
       // Actualizamos el balance de la familia
       const balance = await this.prisma.balance.findUnique({
         where: { id: family.id_balance },
@@ -93,13 +106,26 @@ export class TransactionsService {
           `Balance con ID ${family.id_balance} no encontrado para la familia ${data.id_family}`,
         );
 
+      const prevBalanceBeforeUpdate = balance.value;
+      const newBalanceValue = prevBalanceBeforeUpdate + data.amount;
       await this.prisma.balance.update({
         where: { id: balance.id },
         data: { value: balance.value + data.amount },
       });
+
+      await this.actionLogsService.markSuccess(
+        log.id,
+        `Balance actualizado de ${prevBalanceBeforeUpdate} -> ${newBalanceValue}`,
+        {
+          id_transaction: transaction.id,
+          target_id: transaction.id,
+          transactionAmount: transaction.amount,
+        },
+      );
       return transaction;
     } catch (error) {
       console.log('Error al crear la transacción familiar', error);
+      await this.actionLogsService.markError(log.id, error as Error);
       throw new InternalServerErrorException(
         `Error al crear la transacción familiar`,
       );
@@ -149,7 +175,7 @@ export class TransactionsService {
   async getTransactionsByFamily(id_rama: string) {
     try {
       if (!id_rama) {
-        throw new BadRequestException('ID de rama es requerido'); 
+        throw new BadRequestException('ID de rama es requerido');
       }
       // usuarios que pertenecen a la rama
       const users = await this.prisma.user.findMany({
@@ -165,7 +191,9 @@ export class TransactionsService {
         ),
       );
 
-      if (familyIdsFromUsers.length === 0) {return []};
+      if (familyIdsFromUsers.length === 0) {
+        return [];
+      }
       // filtramos a las familias que son manejadas por la rama
       const families = await this.prisma.family.findMany({
         where: {
@@ -175,7 +203,9 @@ export class TransactionsService {
         select: { id: true },
       });
       const familyIds = families.map((family) => family.id);
-      if (familyIds.length === 0) {return []};
+      if (familyIds.length === 0) {
+        return [];
+      }
 
       return await this.prisma.transactions.findMany({
         where: { id_family: { in: familyIds } },
@@ -191,7 +221,7 @@ export class TransactionsService {
       );
     }
   }
-  
+
   async findByFamilyId(id_family: string) {
     try {
       if (!id_family)
@@ -210,7 +240,11 @@ export class TransactionsService {
       );
     }
   }
-  async update(id: string, data: UpdateTransactionDTO, reqOrActor: ExpressRequest | 'SYSTEM') {
+  async update(
+    id: string,
+    data: UpdateTransactionDTO,
+    reqOrActor: ExpressRequest | 'SYSTEM',
+  ) {
     const { log } = await this.actionLogsService.start(
       ActionType.TRANSACTION_UPDATE,
       reqOrActor,
@@ -303,11 +337,18 @@ export class TransactionsService {
       );
     }
   }
-  async bulkCreate(transactions: CreateTransactionDTO[], reqOrActor?: ExpressRequest | 'SYSTEM') {
-    const { log } = await this.actionLogsService.start(ActionType.TRANSACTION_CREATE, reqOrActor ?? 'SYSTEM', {
-      target_table: ActionTargetTable.TRANSACTIONS,
-      metadata: { action: 'bulk_create_transactions' },
-    });
+  async bulkCreate(
+    transactions: CreateTransactionDTO[],
+    reqOrActor?: ExpressRequest | 'SYSTEM',
+  ) {
+    const { log } = await this.actionLogsService.start(
+      ActionType.TRANSACTION_CREATE,
+      reqOrActor ?? 'SYSTEM',
+      {
+        target_table: ActionTargetTable.TRANSACTIONS,
+        metadata: { action: 'bulk_create_transactions' },
+      },
+    );
 
     try {
       // Transformamos fechas y validamos mínimamente
@@ -327,9 +368,13 @@ export class TransactionsService {
         skipDuplicates: true, // Evita error si hay UUIDs duplicados
       });
 
-      await this.actionLogsService.markSuccess(log.id, `Carga masiva completada (${result.count})`, {
-        createdCount: result.count,
-      });
+      await this.actionLogsService.markSuccess(
+        log.id,
+        `Carga masiva completada (${result.count})`,
+        {
+          createdCount: result.count,
+        },
+      );
 
       return {
         message: `${result.count} transacciones creadas exitosamente`,
@@ -419,70 +464,71 @@ export class TransactionsService {
     }
   }
 
-  async bulkCommunityTransactions(transactions: CreateTransactionDTO[], reqOrActor?: ExpressRequest | 'SYSTEM') {
-    const { log } = await this.actionLogsService.start(ActionType.TRANSACTION_CREATE, reqOrActor ?? 'SYSTEM', {
-      target_table: ActionTargetTable.TRANSACTIONS,
-    });
-
-  const valid: CreateTransactionDTO[] = [];
-  const ignoredByCategory: any[] = [];
-
-  for (let i = 0; i < transactions.length; i++) {
-    const tx = transactions[i];
-
-    if (tx.category?.toUpperCase() === 'CUOTA') {
-      ignoredByCategory.push({
-        index: i,
-        reason: 'Categoría CUOTA no permitida',
-        concept: tx.concept,
-        amount: tx.amount,
-        id_family: tx.id_family,
-      });
-      continue;
-    }
-
-    valid.push(tx);
-  }
-
-  if (valid.length === 0) {
-    throw new BadRequestException({
-      message: 'No se pudo crear ninguna transacción. Todas fueron ignoradas por categoría CUOTA',
-      ignoredByCategory,
-    });
-  }
-
-    try {
-    const result = await this.prisma.transactions.createMany({
-      data: valid.map((tx) => ({
-        ...tx,
-        payment_date: tx.payment_date ?? new Date().toISOString(),
-      })),
-      skipDuplicates: true,
-    });
-    await this.actionLogsService.markSuccess(
-      log.id,
-      `Carga masiva comunitaria (${result.count} creadas, ${ignoredByCategory.length} ignoradas por CUOTA)`,
-      { createdCount: result.count, ignoredByCategory },
+  async bulkCommunityTransactions(
+    transactions: CreateTransactionDTO[],
+    reqOrActor?: ExpressRequest | 'SYSTEM',
+  ) {
+    const { log } = await this.actionLogsService.start(
+      ActionType.TRANSACTION_CREATE,
+      reqOrActor ?? 'SYSTEM',
+      {
+        target_table: ActionTargetTable.TRANSACTIONS,
+      },
     );
 
-    return {
-      message: 'Carga masiva completada exitosamente',
-      created: result.count,
-      ignoredByCategory: ignoredByCategory.length,
-    };
-  } catch (error) {
-    await this.actionLogsService.markError(log.id, error as Error);
+    const valid: CreateTransactionDTO[] = [];
+    const ignoredByCategory: any[] = [];
 
-    throw new InternalServerErrorException('No se pudieron crear las transacciones');
+    for (let i = 0; i < transactions.length; i++) {
+      const tx = transactions[i];
+
+      if (tx.category?.toUpperCase() === 'CUOTA') {
+        ignoredByCategory.push({
+          index: i,
+          reason: 'Categoría CUOTA no permitida',
+          concept: tx.concept,
+          amount: tx.amount,
+          id_family: tx.id_family,
+        });
+        continue;
+      }
+
+      valid.push(tx);
+    }
+
+    if (valid.length === 0) {
+      throw new BadRequestException({
+        message:
+          'No se pudo crear ninguna transacción. Todas fueron ignoradas por categoría CUOTA',
+        ignoredByCategory,
+      });
+    }
+
+    try {
+      const result = await this.prisma.transactions.createMany({
+        data: valid.map((tx) => ({
+          ...tx,
+          payment_date: tx.payment_date ?? new Date().toISOString(),
+        })),
+        skipDuplicates: true,
+      });
+      await this.actionLogsService.markSuccess(
+        log.id,
+        `Carga masiva comunitaria (${result.count} creadas, ${ignoredByCategory.length} ignoradas por CUOTA)`,
+        { createdCount: result.count, ignoredByCategory },
+      );
+
+      return {
+        message: 'Carga masiva completada exitosamente',
+        created: result.count,
+        ignoredByCategory: ignoredByCategory.length,
+      };
+    } catch (error) {
+      await this.actionLogsService.markError(log.id, error as Error);
+
+      throw new InternalServerErrorException(
+        'No se pudieron crear las transacciones',
+      );
+    }
   }
 }
-
-
-
-
-
-
-  
-}
-
-
