@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+ // url      = env("DATABASE_URL")
 }
 
 model User {
@@ -179,10 +179,7 @@ model ActionLog {
 }
 
 enum ActionType {
-  BALANCE_CREATE
   BALANCE_UPDATE
-  BALANCE_UPDATE_FAMILY
-  BALANCE_UPDATE_ALL
   TRANSACTION_CREATE
   TRANSACTION_UPDATE
   TRANSACTION_DELETE
@@ -201,6 +198,10 @@ enum ActionType {
   CUOTA_CREATE
   CUOTA_UPDATE
   CUOTA_DELETE
+  FOLDER_CREATE
+  FOLDER_UPDATE
+  FOLDER_DELETE
+  BALANCE_UPDATE_ALL
   CPH_CREATE
   CPH_UPDATE
   CPH_DELETE
@@ -209,9 +210,8 @@ enum ActionType {
   RAMA_DELETE
   FILE_UPLOAD
   FILE_DELETE
-  FOLDER_CREATE
-  FOLDER_UPDATE
-  FOLDER_DELETE
+  BALANCE_CREATE
+  BALANCE_UPDATE_FAMILY
 }
 
 enum BalanceChangeType {
