@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
- // url      = env("DATABASE_URL")
 }
 
 model User {
@@ -90,9 +89,9 @@ model Payment {
 }
 
 model Balance {
-  id                String   @id @default(uuid()) @db.Uuid
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @default(now())
+  id                String           @id @default(uuid()) @db.Uuid
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @default(now())
   value             Float
   custom_cuota      Float
   cfa_balance_value Float
@@ -101,6 +100,19 @@ model Balance {
   is_custom_cfa     Boolean
   previousValue     Float?
   family            Family?
+  balanceHistories  BalanceHistory[]
+}
+
+model BalanceHistory {
+  id               String            @id @default(uuid()) @db.Uuid
+  id_balance       String            @db.Uuid
+  createdAt        DateTime          @default(now())
+  previous_balance Float
+  change_amount    Float
+  new_value        Float
+  type             BalanceChangeType
+  balance          Balance           @relation(fields: [id_balance], references: [id])
+  description      String?
 }
 
 model Cuota {
@@ -199,6 +211,12 @@ enum ActionType {
   FILE_DELETE
   BALANCE_CREATE
   BALANCE_UPDATE_FAMILY
+}
+
+enum BalanceChangeType {
+  CUOTA_PAYMENT
+  MONTHLY_ADJUSTMENT
+  MANUAL_ADJUSTMENT
 }
 
 enum ActionStatus {
