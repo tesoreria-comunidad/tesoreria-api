@@ -25,13 +25,15 @@ export class UserService {
   constructor(
     private prisma: PrismaService,
     private roleFilterService: RoleFilterService,
-  private actionLogsService: ActionLogsService,
+    private actionLogsService: ActionLogsService,
   ) {}
 
   // Actor resolution is centralized in ActionLogsService.resolveActor(reqOrActor)
 
   public async getAllUser(reqOrActor?: ExpressRequest | 'SYSTEM') {
-  const { loggedUser } = await this.actionLogsService.resolveActor(reqOrActor ?? 'SYSTEM');
+    const { loggedUser } = await this.actionLogsService.resolveActor(
+      reqOrActor ?? 'SYSTEM',
+    );
     try {
       return await this.prisma.user.findMany({
         include: {
@@ -62,12 +64,14 @@ export class UserService {
   }
 
   public async getById(id: string, reqOrActor?: ExpressRequest | 'SYSTEM') {
-  const { loggedUser } = await this.actionLogsService.resolveActor(reqOrActor ?? 'SYSTEM');
+    const { loggedUser } = await this.actionLogsService.resolveActor(
+      reqOrActor ?? 'SYSTEM',
+    );
     try {
       if (!id) throw new BadRequestException('ID es requerido');
       const where = this.roleFilterService.apply(loggedUser, { id });
       const user = await this.prisma.user.findFirst({
-        where,
+        where: { id },
         include: { rama: true, folder: true, family: true },
       });
       if (!user)
@@ -84,8 +88,13 @@ export class UserService {
     }
   }
 
-  public async create(data: CreateUserDTO, reqOrActor?: ExpressRequest | 'SYSTEM') {
-    const { loggedUser } = await this.actionLogsService.resolveActor(reqOrActor ?? 'SYSTEM');
+  public async create(
+    data: CreateUserDTO,
+    reqOrActor?: ExpressRequest | 'SYSTEM',
+  ) {
+    const { loggedUser } = await this.actionLogsService.resolveActor(
+      reqOrActor ?? 'SYSTEM',
+    );
     const { log } = await this.actionLogsService.start(
       ActionType.USER_CREATE,
       reqOrActor ?? 'SYSTEM',
@@ -220,7 +229,9 @@ export class UserService {
     { key, value }: { key: keyof User; value: string | number },
     reqOrActor?: ExpressRequest | 'SYSTEM',
   ) {
-  const { loggedUser } = await this.actionLogsService.resolveActor(reqOrActor ?? 'SYSTEM');
+    const { loggedUser } = await this.actionLogsService.resolveActor(
+      reqOrActor ?? 'SYSTEM',
+    );
     try {
       const where = this.roleFilterService.apply(loggedUser, { [key]: value });
       return await this.prisma.user.findFirst({
@@ -238,7 +249,9 @@ export class UserService {
     data: UpdateUserDTO,
     reqOrActor?: ExpressRequest | 'SYSTEM',
   ) {
-  const { loggedUser } = await this.actionLogsService.resolveActor(reqOrActor ?? 'SYSTEM');
+    const { loggedUser } = await this.actionLogsService.resolveActor(
+      reqOrActor ?? 'SYSTEM',
+    );
     const { log } = await this.actionLogsService.start(
       ActionType.USER_UPDATE,
       reqOrActor ?? 'SYSTEM',
@@ -422,7 +435,9 @@ export class UserService {
     id_rama: string,
     reqOrActor?: ExpressRequest | 'SYSTEM',
   ) {
-  const { loggedUser } = await this.actionLogsService.resolveActor(reqOrActor ?? 'SYSTEM');
+    const { loggedUser } = await this.actionLogsService.resolveActor(
+      reqOrActor ?? 'SYSTEM',
+    );
     const { log } = await this.actionLogsService.start(
       ActionType.USER_CREATE,
       reqOrActor ?? 'SYSTEM',
@@ -438,7 +453,8 @@ export class UserService {
 
       // Si es DIRIGENTE, forzar id_rama a la suya
       if (loggedUser.role === 'DIRIGENTE') {
-        if (!loggedUser.id_rama) throw new BadRequestException('Actor tiene id_rama nulo');
+        if (!loggedUser.id_rama)
+          throw new BadRequestException('Actor tiene id_rama nulo');
         id_rama = loggedUser.id_rama;
       }
 
@@ -680,7 +696,9 @@ export class UserService {
     familyId: string,
     reqOrActor?: ExpressRequest | 'SYSTEM',
   ) {
-    const { loggedUser } = await this.actionLogsService.resolveActor(reqOrActor ?? 'SYSTEM');
+    const { loggedUser } = await this.actionLogsService.resolveActor(
+      reqOrActor ?? 'SYSTEM',
+    );
     if (!loggedUser) throw new BadRequestException('Actor required');
     try {
       if (!familyId)
@@ -711,7 +729,9 @@ export class UserService {
     reqOrActor?: ExpressRequest | 'SYSTEM',
   ) {
     try {
-      const { loggedUser } = await this.actionLogsService.resolveActor(reqOrActor ?? 'SYSTEM');
+      const { loggedUser } = await this.actionLogsService.resolveActor(
+        reqOrActor ?? 'SYSTEM',
+      );
       if (!loggedUser) throw new BadRequestException('Actor required');
       const where = this.roleFilterService.apply(loggedUser, {
         id_family: familyId,
@@ -736,7 +756,9 @@ export class UserService {
     reqOrActor?: ExpressRequest | 'SYSTEM',
   ) {
     try {
-      const { loggedUser } = await this.actionLogsService.resolveActor(reqOrActor ?? 'SYSTEM');
+      const { loggedUser } = await this.actionLogsService.resolveActor(
+        reqOrActor ?? 'SYSTEM',
+      );
       if (!loggedUser) throw new BadRequestException('Actor required');
       const where = this.roleFilterService.apply(loggedUser, {
         id_family: familyId,
@@ -760,7 +782,9 @@ export class UserService {
     familyId: string,
     reqOrActor?: ExpressRequest | 'SYSTEM',
   ) {
-    const { loggedUser } = await this.actionLogsService.resolveActor(reqOrActor ?? 'SYSTEM');
+    const { loggedUser } = await this.actionLogsService.resolveActor(
+      reqOrActor ?? 'SYSTEM',
+    );
     if (!loggedUser) throw new BadRequestException('Actor required');
     const { log } = await this.actionLogsService.start(
       ActionType.USER_UPDATE,
@@ -850,7 +874,9 @@ export class UserService {
     familyId: string,
     reqOrActor?: ExpressRequest | 'SYSTEM',
   ) {
-    const { loggedUser } = await this.actionLogsService.resolveActor(reqOrActor ?? 'SYSTEM');
+    const { loggedUser } = await this.actionLogsService.resolveActor(
+      reqOrActor ?? 'SYSTEM',
+    );
     if (!loggedUser) throw new BadRequestException('Actor required');
     const { log } = await this.actionLogsService.start(
       ActionType.USER_UPDATE,
