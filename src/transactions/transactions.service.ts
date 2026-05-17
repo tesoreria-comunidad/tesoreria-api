@@ -10,10 +10,9 @@ import {
   UpdateTransactionDTO,
 } from './dto/transactions.dto';
 import { RoleFilterService } from 'src/services/RoleFilter.service';
-import { log } from 'console';
 import { TransactionDirection } from './constants';
 import { ActionLogsService } from 'src/action-logs/action-logs.service';
-import { ActionType, ActionTargetTable } from '@prisma/client';
+import { ActionType, ActionTargetTable, BalanceChangeType } from '@prisma/client';
 import { Request as ExpressRequest } from 'express';
 import { AuthService } from 'src/auth/auth.service';
 
@@ -76,6 +75,15 @@ export class TransactionsService {
         `Familia con ID ${data.id_family} no encontrada`,
       );
 
+    const balance = await this.prisma.balance.findUnique({
+      where: { id: family.id_balance },
+    });
+
+    if (!balance)
+      throw new NotFoundException(
+        `Balance con ID ${family.id_balance} no encontrado para la familia ${data.id_family}`,
+      );
+
     const { log } = await this.actionLogsService.start(
       ActionType.TRANSACTION_CREATE,
       reqOrActor,
@@ -85,37 +93,45 @@ export class TransactionsService {
       },
     );
     try {
-      const newTransactionPayload: CreateTransactionDTO = {
-        amount: data.amount,
-        id_family: data.id_family,
-        payment_method: data.payment_method,
-        payment_date: data.payment_date || new Date().toISOString(),
-        direction: TransactionDirection.INCOME,
-        category: 'CUOTA',
-        concept: `Cuota familiar - ${new Date().toLocaleDateString()}`,
-        description: `Cuota mensual de la familia con ID ${data.id_family}`,
-      };
-      const transaction = await this.create(newTransactionPayload, reqOrActor);
-      // Actualizamos el balance de la familia
-      const balance = await this.prisma.balance.findUnique({
-        where: { id: family.id_balance },
-      });
+      const concept = `Cuota familiar - ${new Date().toLocaleDateString('es-AR')}`;
+      const prevValue = balance.value;
+      const newValue = prevValue + data.amount;
 
-      if (!balance)
-        throw new NotFoundException(
-          `Balance con ID ${family.id_balance} no encontrado para la familia ${data.id_family}`,
-        );
-
-      const prevBalanceBeforeUpdate = balance.value;
-      const newBalanceValue = prevBalanceBeforeUpdate + data.amount;
-      await this.prisma.balance.update({
-        where: { id: balance.id },
-        data: { value: balance.value + data.amount },
-      });
+      // Los 3 writes en un solo $transaction para garantizar atomicidad completa
+      const [transaction] = await this.prisma.$transaction([
+        this.prisma.transactions.create({
+          data: {
+            amount: data.amount,
+            id_family: data.id_family,
+            payment_method: data.payment_method,
+            payment_date: data.payment_date
+              ? new Date(data.payment_date)
+              : new Date(),
+            direction: TransactionDirection.INCOME,
+            category: 'CUOTA',
+            concept,
+            description: `Cuota mensual de la familia con ID ${data.id_family}`,
+          },
+        }),
+        this.prisma.balance.update({
+          where: { id: balance.id },
+          data: { value: newValue },
+        }),
+        this.prisma.balanceHistory.create({
+          data: {
+            id_balance: balance.id,
+            previous_balance: prevValue,
+            change_amount: data.amount,
+            new_value: newValue,
+            type: BalanceChangeType.CUOTA_PAYMENT,
+            description: concept,
+          },
+        }),
+      ]);
 
       await this.actionLogsService.markSuccess(
         log.id,
-        `Balance actualizado de ${prevBalanceBeforeUpdate} -> ${newBalanceValue}`,
+        `Balance actualizado de ${prevValue} -> ${newValue}`,
         {
           id_transaction: transaction.id,
           target_id: transaction.id,

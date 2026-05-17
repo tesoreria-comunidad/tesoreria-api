@@ -2,14 +2,16 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
-import { PrismaClient, Balance, Family } from '@prisma/client';
-import { CreateBalanceDTO, UpdateBalanceDTO } from './dto/balance.dto';
+import { Balance, Family, BalanceChangeType } from '@prisma/client';
+import { CreateBalanceDTO, UpdateBalanceDTO, GetBalanceHistoryQueryDTO } from './dto/balance.dto';
 import { RoleFilterService } from 'src/services/RoleFilter.service';
 import { PrismaService } from 'src/prisma.service';
-import { startOfMonth, endOfMonth } from 'date-fns';
+import { startOfMonth, endOfMonth, format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { AuthService } from 'src/auth/auth.service';
 import { ActionLogsService } from 'src/action-logs/action-logs.service';
 import { ActionType, ActionTargetTable } from '@prisma/client';
@@ -111,7 +113,7 @@ export class BalanceService {
       if (!id) {
         throw new BadRequestException('ID es requerido');
       }
-      await this.getById(id, reqOrActor as any);
+      const currentBalance = await this.getById(id, reqOrActor as any);
 
       // start action log for single balance update
       const startRes = await this.actionLogsService.start(
@@ -122,18 +124,42 @@ export class BalanceService {
       log = startRes.log;
 
       this.logger.debug('Actualizando balance con data: ' + JSON.stringify(data));
-      const updated = await this.prisma.balance.update({
-        where: {
-          id: id,
-        },
-        data,
-        include: {
-          family: true,
-        },
-      });
+
+      // Determine if value actually changed (CA-05/CA-06)
+      const valueChanged =
+        data.value !== undefined && data.value !== currentBalance.value;
+
+      // Extract description before stripping it from the Prisma payload
+      const historyDescription = data.description;
+      // Remove description from the payload since it is not a Balance field
+      const { description: _desc, ...balanceData } = data;
+
+      // Use prisma.$transaction for atomicity: balance update + optional BalanceHistory
+      const [updated] = await this.prisma.$transaction([
+        this.prisma.balance.update({
+          where: { id },
+          data: balanceData,
+          include: { family: true },
+        }),
+        ...(valueChanged
+          ? [
+              this.prisma.balanceHistory.create({
+                data: {
+                  id_balance: id,
+                  previous_balance: currentBalance.value,
+                  change_amount: data.value! - currentBalance.value,
+                  new_value: data.value!,
+                  type: BalanceChangeType.MANUAL_ADJUSTMENT,
+                  description: historyDescription ?? null,
+                },
+              }),
+            ]
+          : []),
+      ]);
 
       await this.actionLogsService.markSuccess(log.id, 'Balance actualizado correctamente', {
         updatedId: updated.id,
+        historyCreated: valueChanged,
       });
 
       return updated;
@@ -295,6 +321,88 @@ export class BalanceService {
     }
   }
 
+  public async getHistoryByBalanceId(
+    id: string,
+    query: GetBalanceHistoryQueryDTO,
+    reqOrActor?: ExpressRequest | 'SYSTEM',
+  ) {
+    try {
+      if (!id) {
+        throw new BadRequestException('ID es requerido');
+      }
+
+      // Verificar que el balance y su familia existen
+      const balance = await this.prisma.balance.findUnique({
+        where: { id },
+        include: { family: true },
+      });
+
+      if (!balance) {
+        throw new NotFoundException(`Balance con ID ${id} no encontrado`);
+      }
+
+      const family = balance.family;
+      if (!family) {
+        throw new NotFoundException(`Familia asociada al balance ${id} no encontrada`);
+      }
+
+      // Control de acceso por rol
+      const loggedUser = extractLoggedUser(reqOrActor);
+      if (loggedUser) {
+        switch (loggedUser.role) {
+          case 'MASTER':
+            // Acceso total — sin restricciones adicionales
+            break;
+          case 'DIRIGENTE':
+            // Solo familias de su rama
+            if (family.manage_by !== loggedUser.id_rama) {
+              throw new ForbiddenException('No tenés acceso al historial de esta familia');
+            }
+            break;
+          case 'FAMILY':
+          case 'BENEFICIARIO':
+            // Solo su propia familia
+            if (loggedUser.id_family !== family.id) {
+              throw new ForbiddenException('No tenés acceso al historial de esta familia');
+            }
+            break;
+          default:
+            throw new ForbiddenException('Rol no autorizado para consultar historial de balance');
+        }
+      }
+
+      const { type, from, to, take = 50, skip = 0 } = query;
+
+      return await this.prisma.balanceHistory.findMany({
+        where: {
+          id_balance: id,
+          ...(type ? { type } : {}),
+          ...(from || to
+            ? {
+                createdAt: {
+                  ...(from ? { gte: new Date(from) } : {}),
+                  ...(to ? { lte: new Date(to) } : {}),
+                },
+              }
+            : {}),
+        },
+        orderBy: { createdAt: 'desc' },
+        take,
+        skip,
+      });
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException ||
+        error instanceof ForbiddenException
+      ) {
+        throw error;
+      }
+      console.log('Error al obtener el historial de balance: ', error);
+      throw new InternalServerErrorException('Error al obtener el historial de balance');
+    }
+  }
+
   public async updateBalanceForFamily(familyId: string, reqOrActor?: ExpressRequest | 'SYSTEM'): Promise<Family> {
     let log: any = null;
     try {
@@ -346,13 +454,30 @@ export class BalanceService {
       );
       log = startRes.log;
 
-      // 5. Actualizar el balance
+      // 5. Actualizar el balance + registrar BalanceHistory de forma atómica
       const oldBalance = familyBalance.value;
       const newBalance = oldBalance - cuotaValue;
-      await this.prisma.balance.update({
-        where: { id: family.balance.id },
-        data: { value: newBalance, previousValue: oldBalance },
-      });
+      const now = new Date();
+      const monthName = format(now, 'MMMM', { locale: es });
+      const year = format(now, 'yyyy');
+      const monthlyDescription = `Descuento mensual - ${monthName} ${year}`;
+
+      await this.prisma.$transaction([
+        this.prisma.balance.update({
+          where: { id: family.balance.id },
+          data: { value: newBalance, previousValue: oldBalance },
+        }),
+        this.prisma.balanceHistory.create({
+          data: {
+            id_balance: family.balance.id,
+            previous_balance: oldBalance,
+            change_amount: -cuotaValue,
+            new_value: newBalance,
+            type: BalanceChangeType.MONTHLY_ADJUSTMENT,
+            description: monthlyDescription,
+          },
+        }),
+      ]);
 
       await this.actionLogsService.markSuccess(log.id, 'Balance actualizado para familia', {
         familyId: family.id,
