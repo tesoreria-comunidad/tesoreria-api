@@ -4,14 +4,13 @@ import { Prisma, ActionType, ActionTargetTable } from '@prisma/client';
 import { PrismaService } from 'src/prisma.service';
 import { CreateLogInput, ListLogsParams } from './types';
 import { Request as ExpressRequest } from 'express';
-import { AuthService } from 'src/auth/auth.service';
 import { LoggedUser } from 'src/auth/types';
 import { isLoggedUser } from 'src/auth/typeguards';
 
 @Injectable()
 export class ActionLogsService {
   private readonly logger = new Logger(ActionLogsService.name);
-  constructor(private prisma: PrismaService, private authService: AuthService) {}
+  constructor(private prisma: PrismaService) {}
 
   /** Helper de rango mensual (inicio/fin de mes del date dado) */
   private getMonthRange(date = new Date()) {
