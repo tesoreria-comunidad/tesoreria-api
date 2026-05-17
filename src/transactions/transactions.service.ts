@@ -111,6 +111,7 @@ export class TransactionsService {
             category: 'CUOTA',
             concept,
             description: `Cuota mensual de la familia con ID ${data.id_family}`,
+            attachment: data.attachment,
           },
         }),
         this.prisma.balance.update({

@@ -6,6 +6,7 @@ import {
 import { PrismaService } from 'src/prisma.service';
 import { DateTime } from 'luxon';
 import { Balance, Family } from '@prisma/client';
+import { CobrabilidadResumenDto } from './dto/cobrabilidad.dto';
 
 @Injectable()
 export class CobrabilidadService {
@@ -117,6 +118,49 @@ export class CobrabilidadService {
       this.logger.error('❌ Error al calcular cobrabilidad', error);
       throw new InternalServerErrorException(
         'Error al calcular la cobrabilidad por rama',
+      );
+    }
+  }
+
+  async getResumenCobrabilidad(
+    mes: number,
+    anio: number,
+  ): Promise<CobrabilidadResumenDto> {
+    try {
+      const resultadosPorRama = await this.calcularCobrabilidadPorRama(
+        mes,
+        anio,
+      );
+
+      const totalEsperado = resultadosPorRama.reduce(
+        (acc, rama) => acc + rama.totalEsperado,
+        0,
+      );
+      const totalCobrado = resultadosPorRama.reduce(
+        (acc, rama) => acc + rama.totalCobrado,
+        0,
+      );
+
+      const cobrabilidad =
+        totalEsperado > 0
+          ? Number(((totalCobrado / totalEsperado) * 100).toFixed(1))
+          : 0;
+
+      this.logger.log(
+        `✅ Resumen de cobrabilidad calculado para ${mes}/${anio}: ${cobrabilidad}%`,
+      );
+
+      return {
+        totalEsperado: Number(totalEsperado.toFixed(2)),
+        totalCobrado: Number(totalCobrado.toFixed(2)),
+        cobrabilidad,
+        mes,
+        anio,
+      };
+    } catch (error) {
+      this.logger.error('❌ Error al calcular resumen de cobrabilidad', error);
+      throw new InternalServerErrorException(
+        'Error al calcular el resumen de cobrabilidad',
       );
     }
   }
