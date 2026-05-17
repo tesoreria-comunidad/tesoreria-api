@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
 import { PersonModule } from './person/person.module';
@@ -23,6 +24,7 @@ import { ActionLogsModule } from './action-logs/action-logs.module';
 
 @Module({
   imports: [
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 10 }]),
     UserModule,
     AuthModule,
     RamaModule,

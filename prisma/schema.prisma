@@ -7,30 +7,32 @@ datasource db {
 }
 
 model User {
-  id          String     @id @default(uuid()) @db.Uuid
-  id_folder   String?    @unique @db.Uuid
-  id_rama     String?    @db.Uuid
-  id_family   String?    @db.Uuid
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  username    String
-  password    String
-  email       String?    @unique
-  name        String
-  last_name   String
-  birthdate   DateTime?
-  citizenship String?
-  address     String?
-  phone       String?
-  gender      Gender?
-  dni         String?
-  is_granted  Boolean    @default(false)
-  is_active   Boolean    @default(true)
-  role        Role?      @default(BENEFICIARIO)
-  family_role familyRole @default(ADMIN)
-  family      Family?    @relation(fields: [id_family], references: [id])
-  folder      Folder?    @relation(fields: [id_folder], references: [id])
-  rama        Rama?      @relation(fields: [id_rama], references: [id])
+  id                             String     @id @default(uuid()) @db.Uuid
+  id_folder                      String?    @unique @db.Uuid
+  id_rama                        String?    @db.Uuid
+  id_family                      String?    @db.Uuid
+  createdAt                      DateTime   @default(now())
+  updatedAt                      DateTime   @updatedAt
+  username                       String
+  password                       String
+  email                          String?    @unique
+  name                           String
+  last_name                      String
+  birthdate                      DateTime?
+  citizenship                    String?
+  address                        String?
+  phone                          String?
+  gender                         Gender?
+  dni                            String?
+  is_granted                     Boolean    @default(false)
+  is_active                      Boolean    @default(true)
+  role                           Role?      @default(BENEFICIARIO)
+  family_role                    familyRole @default(ADMIN)
+  password_reset_token           String?    @unique
+  password_reset_token_expires_at DateTime?
+  family                         Family?    @relation(fields: [id_family], references: [id])
+  folder                         Folder?    @relation(fields: [id_folder], references: [id])
+  rama                           Rama?      @relation(fields: [id_rama], references: [id])
 }
 
 model Rama {
@@ -211,6 +213,8 @@ enum ActionType {
   FILE_DELETE
   BALANCE_CREATE
   BALANCE_UPDATE_FAMILY
+  PASSWORD_RESET_REQUEST
+  PASSWORD_RESET_SUCCESS
 }
 
 enum BalanceChangeType {
