@@ -6,6 +6,7 @@ import {
   Param,
   Post,
   Patch,
+  Query,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -13,11 +14,15 @@ import {
 } from '@nestjs/common';
 import { Request as ExpressRequest } from 'express';
 import { BalanceService } from './balance.service';
-import { CreateBalanceDTO, UpdateBalanceDTO } from './dto/balance.dto';
+import { CreateBalanceDTO, UpdateBalanceDTO, GetBalanceHistoryQueryDTO } from './dto/balance.dto';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery } from '@nestjs/swagger';
+
 // using Nest's @Request() typing (any) for controller handlers
+@ApiTags('balance')
+@ApiBearerAuth()
 @UseGuards(AuthGuard, RolesGuard)
 @Controller('balance')
 export class BalanceController {
@@ -71,6 +76,27 @@ export class BalanceController {
   @HttpCode(HttpStatus.OK)
   async UpdateAll(@Req() req: ExpressRequest) {
     return await this.balanceService.updateAll(req);
+  }
+
+  @Get(':id/history')
+  @Roles('MASTER', 'DIRIGENTE', 'FAMILY', 'BENEFICIARIO')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Obtener historial de cambios de un balance' })
+  @ApiParam({ name: 'id', description: 'ID del balance', type: String })
+  @ApiQuery({ name: 'type', required: false, description: 'Filtrar por tipo de cambio (CUOTA_PAYMENT | MONTHLY_ADJUSTMENT | MANUAL_ADJUSTMENT)' })
+  @ApiQuery({ name: 'from', required: false, description: 'Fecha de inicio ISO (inclusive)' })
+  @ApiQuery({ name: 'to', required: false, description: 'Fecha de fin ISO (inclusive)' })
+  @ApiQuery({ name: 'take', required: false, description: 'Cantidad de registros a traer (default 50)' })
+  @ApiQuery({ name: 'skip', required: false, description: 'Registros a omitir para paginación (default 0)' })
+  @ApiResponse({ status: 200, description: 'Historial de balance obtenido correctamente' })
+  @ApiResponse({ status: 403, description: 'Sin permisos para acceder al historial de esta familia' })
+  @ApiResponse({ status: 404, description: 'Balance no encontrado' })
+  async getHistory(
+    @Param('id') id: string,
+    @Query() query: GetBalanceHistoryQueryDTO,
+    @Req() req: ExpressRequest,
+  ) {
+    return await this.balanceService.getHistoryByBalanceId(id, query, req);
   }
 
   @Delete(':id')

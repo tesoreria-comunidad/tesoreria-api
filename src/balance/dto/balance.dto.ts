@@ -1,5 +1,7 @@
-import { IsNotEmpty, IsNumber, IsBoolean, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsBoolean, IsOptional, IsString } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { IsEnum, IsDateString, Min } from 'class-validator';
+import { BalanceChangeType } from '@prisma/client';
 
 export class CreateBalanceDTO {
   @IsNumber(
@@ -107,4 +109,34 @@ export class UpdateBalanceDTO {
     return Boolean(value);
   })
   is_custom_cfa?: boolean;
+
+  @IsString({ message: 'description debe ser un texto' })
+  @IsOptional()
+  description?: string;
+}
+
+export class GetBalanceHistoryQueryDTO {
+  @IsEnum(BalanceChangeType, { message: 'type debe ser un valor válido de BalanceChangeType' })
+  @IsOptional()
+  type?: BalanceChangeType;
+
+  @IsDateString({}, { message: 'from debe ser una fecha ISO válida' })
+  @IsOptional()
+  from?: string;
+
+  @IsDateString({}, { message: 'to debe ser una fecha ISO válida' })
+  @IsOptional()
+  to?: string;
+
+  @IsNumber({}, { message: 'take debe ser un número entero' })
+  @Min(1, { message: 'take debe ser al menos 1' })
+  @IsOptional()
+  @Transform(({ value }) => (value !== undefined ? parseInt(value, 10) : value))
+  take?: number;
+
+  @IsNumber({}, { message: 'skip debe ser un número entero' })
+  @Min(0, { message: 'skip debe ser 0 o mayor' })
+  @IsOptional()
+  @Transform(({ value }) => (value !== undefined ? parseInt(value, 10) : value))
+  skip?: number;
 }
