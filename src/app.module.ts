@@ -21,6 +21,7 @@ import { CronJobsModule } from './cron-jobs/cron-jobs.module';
 import { FileModule } from './file/file.module';
 import { CobrabilidadModule } from './cobrabilidad/cobrabilidad.module';
 import { ActionLogsModule } from './action-logs/action-logs.module';
+import { MonitoringModule } from './monitoring/monitoring.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { ActionLogsModule } from './action-logs/action-logs.module';
     FileModule,
     CobrabilidadModule,
     ActionLogsModule,
+    MonitoringModule,
   ],
   controllers: [],
   providers: [],
