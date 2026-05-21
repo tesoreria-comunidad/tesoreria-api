@@ -6,6 +6,8 @@ import {
   IsUUID,
   IsEnum,
   IsDate,
+  IsArray,
+  ArrayMinSize,
 } from 'class-validator';
 import { Role, Gender, familyRole } from '@prisma/client';
 import { Transform } from 'class-transformer';
@@ -143,6 +145,23 @@ export class BulkCreateUserDTO {
   family_role?: familyRole;
 }
 
+export class UpdateUserRamaDTO {
+  @IsUUID('4', { message: 'id_rama debe ser un UUID válido' })
+  @IsNotEmpty({ message: 'id_rama es requerido' })
+  id_rama: string;
+}
+
+export class BulkUpdateRamaDTO {
+  @IsArray({ message: 'user_ids debe ser un array' })
+  @ArrayMinSize(1, { message: 'Debe proporcionar al menos un ID de usuario' })
+  @IsUUID('4', { each: true, message: 'Cada user_id debe ser un UUID válido' })
+  user_ids: string[];
+
+  @IsUUID('4', { message: 'id_rama_destino debe ser un UUID válido' })
+  @IsNotEmpty({ message: 'id_rama_destino es requerido' })
+  id_rama_destino: string;
+}
+
 export class UpdateUserDTO {
   @IsString({ message: 'El nombre de usuario debe ser una cadena de texto' })
   @IsOptional()
@@ -159,10 +178,6 @@ export class UpdateUserDTO {
   @IsOptional()
   @IsUUID('4', { message: 'El ID de carpeta debe ser un UUID válido' })
   id_folder?: string;
-
-  @IsOptional()
-  @IsUUID('4', { message: 'El ID de rama debe ser un UUID válido' })
-  id_rama?: string;
 
   @IsString({ message: 'El nombre debe ser una cadena de texto' })
   @IsOptional()

@@ -5,7 +5,7 @@ import {
   InternalServerErrorException,
   ConflictException,
 } from '@nestjs/common';
-import { PrismaClient, Rama } from '@prisma/client';
+import { Rama } from '@prisma/client';
 import { CreateRamaDTO, UpdateRamaDTO } from './dto/rama.dto';
 import { RoleFilterService } from 'src/services/RoleFilter.service';
 import { PrismaService } from 'src/prisma.service';
@@ -69,32 +69,29 @@ export class RamaService {
       target_table: ActionTargetTable.RAMA,
       metadata: { action: 'create_rama', payload: { ...data } },
     });
-    const actorId = log.id_user;
     try {
       if (!data.name || data.name.trim().length === 0) {
         throw new BadRequestException('El nombre de la rama es requerido');
       }
 
       // Verificar si ya existe una rama con el mismo nombre
-      const existingRama = await this.prisma.rama.findFirst({
+      const existingRamaByName = await this.prisma.rama.findFirst({
         where: { name: data.name.trim() },
       });
-
-      if (existingRama) {
+      if (existingRamaByName) {
         throw new ConflictException('Ya existe una rama con ese nombre');
       }
 
-      try {
-        const created = await this.prisma.rama.create({
-          data: { ...data, name: data.name.trim() },
-          include: { users: true },
-        });
-        await this.actionLogsService.markSuccess(log.id, 'Rama creada', { createdId: created.id });
-        return created;
-      } catch (error) {
-        await this.actionLogsService.markError(log.id, error as Error);
-        throw error;
+      // Verificar si ya existe una rama con la misma combinación grupo + orden
+      const existingRamaByGrupoOrden = await this.prisma.rama.findFirst({
+        where: { grupo: data.grupo, orden: data.orden },
+      });
+      if (existingRamaByGrupoOrden) {
+        throw new ConflictException(
+          `Ya existe una rama con grupo ${data.grupo} y orden ${data.orden}`,
+        );
       }
+
       try {
         const created = await this.prisma.rama.create({
           data: { ...data, name: data.name.trim() },
@@ -124,7 +121,6 @@ export class RamaService {
       target_id: id,
       metadata: { action: 'update_rama', payload: { ...data } },
     });
-    const actorId = log.id_user;
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
@@ -183,7 +179,6 @@ export class RamaService {
       target_id: id,
       metadata: { action: 'delete_rama' },
     });
-    const actorId = log.id_user;
     try {
       if (!id) {
         throw new BadRequestException('ID es requerido');
