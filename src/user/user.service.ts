@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -10,6 +11,8 @@ import {
   UpdateUserDTO,
   CreateUserDTO,
   BulkCreateUserDTO,
+  BulkUpdateRamaDTO,
+  UpdateUserRamaDTO,
 } from './dto/user.dto';
 import { removeUndefined } from 'src/utils/remove-undefined.util';
 import { PrismaService } from 'src/prisma.service';
@@ -300,15 +303,6 @@ export class UserService {
         });
         if (existingUser)
           throw new ConflictException('Ya existe otro usuario con ese DNI');
-      }
-
-      // Verificar que la rama existe si se proporciona
-      if (data.id_rama) {
-        const ramaExists = await this.prisma.rama.findFirst({
-          where: { id: data.id_rama },
-        });
-        if (!ramaExists)
-          throw new BadRequestException('La rama especificada no existe');
       }
 
       // Verificar que la carpeta existe si se proporciona
@@ -606,6 +600,301 @@ export class UserService {
       }
       console.error('Error bulkCreate users:', error);
       throw new InternalServerErrorException('Error al crear usuarios en lote');
+    }
+  }
+
+  public async bulkUpdateRama(
+    dto: BulkUpdateRamaDTO,
+    reqOrActor?: ExpressRequest | 'SYSTEM',
+  ) {
+    const { loggedUser } = await this.actionLogsService.resolveActor(
+      reqOrActor ?? 'SYSTEM',
+    );
+    const { log } = await this.actionLogsService.start(
+      ActionType.USER_UPDATE,
+      reqOrActor ?? 'SYSTEM',
+      { target_table: ActionTargetTable.USER },
+    );
+
+    try {
+      if (!loggedUser) throw new BadRequestException('Actor requerido');
+
+      const { user_ids, id_rama_destino } = dto;
+
+      // Verificar que la rama destino existe
+      const ramaDestino = await this.prisma.rama.findUnique({
+        where: { id: id_rama_destino },
+      });
+      if (!ramaDestino) {
+        throw new NotFoundException(
+          `La rama destino con ID ${id_rama_destino} no existe`,
+        );
+      }
+
+      // Verificar que todos los usuarios existen
+      const existingUsers = await this.prisma.user.findMany({
+        where: { id: { in: user_ids } },
+        select: { id: true, name: true, last_name: true, id_rama: true },
+      });
+
+      if (existingUsers.length !== user_ids.length) {
+        const foundIds = new Set(existingUsers.map((u) => u.id));
+        const missing = user_ids.filter((id) => !foundIds.has(id));
+        throw new NotFoundException(
+          `Los siguientes usuarios no fueron encontrados: ${missing.join(', ')}`,
+        );
+      }
+
+      // Validación de custodia para DIRIGENTE: solo puede mover usuarios de su propia rama
+      if (loggedUser.role === 'DIRIGENTE') {
+        if (!loggedUser.id_rama) {
+          throw new ForbiddenException(
+            'El DIRIGENTE no tiene una rama asignada',
+          );
+        }
+        const usersFromOtherRama = existingUsers.filter(
+          (u) => u.id_rama !== loggedUser.id_rama,
+        );
+        if (usersFromOtherRama.length > 0) {
+          const forbidden = usersFromOtherRama.map((u) => u.id);
+          throw new ForbiddenException(
+            `No tiene permisos para mover usuarios de otra rama: ${forbidden.join(', ')}`,
+          );
+        }
+      }
+
+      // Capturar id_rama previo por usuario para el ActionLog
+      const previousRamaByUser = existingUsers.map((u) => ({
+        id: u.id,
+        name: u.name,
+        last_name: u.last_name,
+        id_rama_previo: u.id_rama,
+      }));
+
+      // Operación atómica: actualizar todos los usuarios en una transacción
+      const updatedUsers = await this.prisma.$transaction(async (tx) => {
+        await tx.user.updateMany({
+          where: { id: { in: user_ids } },
+          data: { id_rama: id_rama_destino },
+        });
+
+        return tx.user.findMany({
+          where: { id: { in: user_ids } },
+          select: { id: true, name: true, last_name: true, id_rama: true },
+          orderBy: { name: 'asc' },
+        });
+      });
+
+      await this.actionLogsService.markSuccess(log.id, undefined, {
+        id_rama_destino,
+        rama_destino_name: ramaDestino.name,
+        updated_count: updatedUsers.length,
+        user_ids_afectados: user_ids,
+        cambios_por_usuario: previousRamaByUser,
+      });
+
+      return {
+        updated_count: updatedUsers.length,
+        users: updatedUsers,
+      };
+    } catch (error) {
+      console.log('Error en reasignación masiva de rama', error);
+      await this.actionLogsService.markError(log.id, error as Error);
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException ||
+        error instanceof ForbiddenException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
+        'Error al reasignar usuarios a la nueva rama',
+      );
+    }
+  }
+
+  public async transferRama(
+    id: string,
+    dto: UpdateUserRamaDTO,
+    reqOrActor?: ExpressRequest | 'SYSTEM',
+  ) {
+    const { loggedUser } = await this.actionLogsService.resolveActor(
+      reqOrActor ?? 'SYSTEM',
+    );
+    const { log } = await this.actionLogsService.start(
+      ActionType.USER_UPDATE,
+      reqOrActor ?? 'SYSTEM',
+      { target_table: ActionTargetTable.USER, target_id: id },
+    );
+
+    try {
+      if (!id) throw new BadRequestException('ID es requerido');
+      if (!loggedUser) throw new BadRequestException('Actor requerido');
+
+      // Solo MASTER y DIRIGENTE pueden ejecutar traspasos
+      if (loggedUser.role === 'FAMILY' || loggedUser.role === 'BENEFICIARIO') {
+        throw new ForbiddenException('No tiene permisos para realizar traspasos de rama');
+      }
+
+      // Obtener usuario objetivo
+      const usuario = await this.prisma.user.findFirst({
+        where: { id },
+        include: { rama: true },
+      });
+      if (!usuario) throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+
+      // DIRIGENTE solo puede traspasar beneficiarios de su propia rama
+      if (loggedUser.role === 'DIRIGENTE') {
+        if (!loggedUser.id_rama) {
+          throw new ForbiddenException('El DIRIGENTE no tiene una rama asignada');
+        }
+        if (usuario.id_rama !== loggedUser.id_rama) {
+          throw new ForbiddenException(
+            'Solo puede traspasar beneficiarios de su propia rama',
+          );
+        }
+      }
+
+      // Obtener rama destino
+      const ramaDestino = await this.prisma.rama.findFirst({
+        where: { id: dto.id_rama },
+      });
+      if (!ramaDestino) {
+        throw new BadRequestException('La rama destino especificada no existe');
+      }
+
+      // Validar que el usuario tiene rama actual asignada
+      if (!usuario.id_rama) {
+        throw new BadRequestException(
+          'El usuario no tiene una rama actual asignada. Use el endpoint de actualización general para asignar la rama inicial.',
+        );
+      }
+
+      // Obtener rama origen
+      const ramaOrigen = await this.prisma.rama.findFirst({
+        where: { id: usuario.id_rama },
+      });
+      if (!ramaOrigen) {
+        throw new BadRequestException('La rama actual del usuario no fue encontrada');
+      }
+
+      // Validar que origen y destino son del mismo grupo
+      if (ramaOrigen.grupo !== ramaDestino.grupo) {
+        throw new BadRequestException(
+          'La rama destino debe pertenecer al mismo grupo que la rama actual',
+        );
+      }
+
+      if (ramaDestino.id === ramaOrigen.id) {
+        throw new BadRequestException(
+          'La rama destino debe ser distinta a la rama actual',
+        );
+      }
+
+      const ahora = new Date();
+
+      // Ejecutar transacción Prisma
+      const updatedUser = await this.prisma.$transaction(async (tx) => {
+        // Cerrar registro activo en UserRamaHistory (si existe)
+        await tx.userRamaHistory.updateMany({
+          where: { id_user: id, fecha_egreso: null },
+          data: { fecha_egreso: ahora },
+        });
+
+        // Crear nuevo registro en UserRamaHistory
+        await tx.userRamaHistory.create({
+          data: {
+            id_user: id,
+            id_rama: dto.id_rama,
+            id_rama_anterior: usuario.id_rama,
+            fecha_ingreso: ahora,
+            fecha_egreso: null,
+          },
+        });
+
+        // Actualizar User.id_rama
+        return tx.user.update({
+          where: { id },
+          data: { id_rama: dto.id_rama },
+          include: { rama: true, folder: true, family: true },
+        });
+      });
+
+      await this.actionLogsService.markSuccess(log.id, 'Traspaso de rama exitoso', {
+        target_id: id,
+        id_rama_origen: ramaOrigen.id,
+        nombre_rama_origen: ramaOrigen.name,
+        id_rama_destino: ramaDestino.id,
+        nombre_rama_destino: ramaDestino.name,
+        fecha_traspaso: ahora.toISOString(),
+      });
+
+      return updatedUser;
+    } catch (error) {
+      console.log('Error en traspaso de rama', error);
+      await this.actionLogsService.markError(log.id, error as Error);
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException ||
+        error instanceof ForbiddenException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Error al traspasar al usuario de rama');
+    }
+  }
+
+  public async getRamaHistory(
+    id: string,
+    reqOrActor?: ExpressRequest | 'SYSTEM',
+  ) {
+    const { loggedUser } = await this.actionLogsService.resolveActor(
+      reqOrActor ?? 'SYSTEM',
+    );
+    if (!loggedUser) throw new BadRequestException('Actor requerido');
+
+    // Solo MASTER y DIRIGENTE pueden ver el historial
+    if (loggedUser.role === 'FAMILY' || loggedUser.role === 'BENEFICIARIO') {
+      throw new ForbiddenException('No tiene permisos para ver el historial de ramas');
+    }
+
+    try {
+      if (!id) throw new BadRequestException('ID es requerido');
+
+      // Verificar que el usuario existe
+      const usuario = await this.prisma.user.findFirst({ where: { id } });
+      if (!usuario) throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+
+      // DIRIGENTE solo puede ver historial de beneficiarios de su rama
+      if (loggedUser.role === 'DIRIGENTE') {
+        if (!loggedUser.id_rama) {
+          throw new ForbiddenException('El DIRIGENTE no tiene una rama asignada');
+        }
+        if (usuario.id_rama !== loggedUser.id_rama) {
+          throw new ForbiddenException(
+            'Solo puede ver el historial de beneficiarios de su propia rama',
+          );
+        }
+      }
+
+      return await this.prisma.userRamaHistory.findMany({
+        where: { id_user: id },
+        include: {
+          rama: true,
+          ramaAnterior: true,
+        },
+        orderBy: { fecha_ingreso: 'desc' },
+      });
+    } catch (error) {
+      console.log('Error al obtener historial de ramas', error);
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException ||
+        error instanceof ForbiddenException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Error al obtener el historial de ramas');
     }
   }
 

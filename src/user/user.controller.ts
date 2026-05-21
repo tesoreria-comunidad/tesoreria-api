@@ -20,11 +20,22 @@ import {
   UpdateUserDTO,
   CreateUserDTO,
   BulkCreateUserDTO,
+  BulkUpdateRamaDTO,
+  UpdateUserRamaDTO,
 } from './dto/user.dto';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiBody,
+} from '@nestjs/swagger';
 
+@ApiTags('user')
+@ApiBearerAuth()
 @UseGuards(AuthGuard, RolesGuard)
 @Controller('user')
 export class UserController {
@@ -52,6 +63,91 @@ export class UserController {
   @Roles('MASTER', 'DIRIGENTE')
   async createUser(@Body() body: CreateUserDTO, @Req() req: ExpressRequest) {
     return await this.userService.create(body, req);
+  }
+
+  @Patch('bulk-rama')
+  @Roles('MASTER', 'DIRIGENTE')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Reasignación masiva de rama',
+    description:
+      'Mueve uno o varios usuarios a una rama destino de forma atómica. ' +
+      'MASTER puede mover usuarios de cualquier rama. ' +
+      'DIRIGENTE solo puede mover usuarios que pertenezcan a su propia rama.',
+  })
+  @ApiBody({ type: BulkUpdateRamaDTO })
+  @ApiResponse({
+    status: 200,
+    description: 'Usuarios reasignados correctamente',
+    schema: {
+      example: {
+        updated_count: 3,
+        users: [
+          { id: 'uuid-1', name: 'Juan', last_name: 'Pérez', id_rama: 'uuid-rama' },
+        ],
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Payload inválido o array vacío' })
+  @ApiResponse({
+    status: 403,
+    description: 'DIRIGENTE intentando mover usuarios de otra rama',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Rama destino o uno/varios usuarios no encontrados',
+  })
+  @ApiResponse({ status: 500, description: 'Error interno — transacción revertida' })
+  async bulkUpdateRama(
+    @Body() body: BulkUpdateRamaDTO,
+    @Req() req: ExpressRequest,
+  ) {
+    return await this.userService.bulkUpdateRama(body, req);
+  }
+
+  @Patch(':id/rama')
+  @Roles('MASTER', 'DIRIGENTE')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Traspaso de rama de un beneficiario',
+    description:
+      'Mueve a un beneficiario a la rama inmediatamente anterior o siguiente dentro del mismo grupo scout. ' +
+      'MASTER puede traspasar cualquier beneficiario. ' +
+      'DIRIGENTE solo puede traspasar beneficiarios de su propia rama. ' +
+      'La operación registra historial en UserRamaHistory y un ActionLog.',
+  })
+  @ApiBody({ type: UpdateUserRamaDTO })
+  @ApiResponse({ status: 200, description: 'Traspaso exitoso — retorna el usuario actualizado con la nueva rama' })
+  @ApiResponse({ status: 400, description: 'Rama destino no es contigua, o no pertenece al mismo grupo' })
+  @ApiResponse({ status: 401, description: 'JWT inválido o ausente' })
+  @ApiResponse({ status: 403, description: 'Rol sin permisos o DIRIGENTE intentando traspasar desde otra rama' })
+  @ApiResponse({ status: 404, description: 'Usuario o rama no encontrada' })
+  async transferRama(
+    @Param('id') id: string,
+    @Body() body: UpdateUserRamaDTO,
+    @Req() req: ExpressRequest,
+  ) {
+    return await this.userService.transferRama(id, body, req);
+  }
+
+  @Get(':id/rama/historial')
+  @Roles('MASTER', 'DIRIGENTE')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Historial de movimientos de rama de un beneficiario',
+    description:
+      'Devuelve todos los registros de UserRamaHistory del usuario, ordenados por fecha_ingreso descendente. ' +
+      'MASTER puede ver cualquier historial. DIRIGENTE solo puede ver historial de su propia rama.',
+  })
+  @ApiResponse({ status: 200, description: 'Lista de registros de historial de rama' })
+  @ApiResponse({ status: 401, description: 'JWT inválido o ausente' })
+  @ApiResponse({ status: 403, description: 'Rol sin permisos o DIRIGENTE intentando ver historial de otra rama' })
+  @ApiResponse({ status: 404, description: 'Usuario no encontrado' })
+  async getRamaHistorial(
+    @Param('id') id: string,
+    @Req() req: ExpressRequest,
+  ) {
+    return await this.userService.getRamaHistory(id, req);
   }
 
   @Patch(':id')
