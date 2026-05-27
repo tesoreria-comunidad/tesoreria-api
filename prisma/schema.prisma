@@ -59,7 +59,7 @@ model UserRamaHistory {
   id_rama_anterior String?   @db.Uuid
   fecha_ingreso    DateTime
   fecha_egreso     DateTime?
-  user             User      @relation(fields: [id_user], references: [id])
+  user             User      @relation(fields: [id_user], references: [id], onDelete: Cascade)
   rama             Rama      @relation(name: "RamaDestino", fields: [id_rama], references: [id])
   ramaAnterior     Rama?     @relation(name: "RamaAnterior", fields: [id_rama_anterior], references: [id])
 }

@@ -389,7 +389,7 @@ export class UserService {
   }
 
   public async delete(id: string, reqOrActor?: ExpressRequest | 'SYSTEM') {
-    const { log } = await this.actionLogsService.start(
+    const { log, loggedUser } = await this.actionLogsService.start(
       ActionType.USER_DELETE,
       reqOrActor ?? 'SYSTEM',
       { target_table: ActionTargetTable.USER, target_id: id },
@@ -397,18 +397,56 @@ export class UserService {
 
     try {
       if (!id) throw new BadRequestException('ID es requerido');
-      await this.getById(id, reqOrActor);
+
+      // Validación 1: actor no puede borrarse a sí mismo
+      if (loggedUser && loggedUser.id === id) {
+        throw new BadRequestException('No podés eliminar tu propio usuario');
+      }
+
+      // Buscar el usuario a borrar (sin filtro de rol para que MASTER vea cualquiera)
+      const targetUser = await this.prisma.user.findFirst({
+        where: { id },
+      });
+      if (!targetUser) {
+        throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+      }
+
+      // Validación 2: DIRIGENTE solo puede borrar usuarios de su propia rama
+      if (loggedUser && loggedUser.role === 'DIRIGENTE') {
+        if (!loggedUser.id_rama) {
+          throw new ForbiddenException('El DIRIGENTE no tiene una rama asignada');
+        }
+        if (targetUser.id_rama !== loggedUser.id_rama) {
+          throw new ForbiddenException(
+            'Solo podés eliminar usuarios de tu propia rama',
+          );
+        }
+      }
+
+      // Validación 3: no se puede borrar al único ADMIN de una familia
+      if (targetUser.id_family && targetUser.family_role === 'ADMIN') {
+        const adminCount = await this.prisma.user.count({
+          where: {
+            id_family: targetUser.id_family,
+            family_role: 'ADMIN',
+          },
+        });
+        if (adminCount <= 1) {
+          throw new ConflictException(
+            'No se puede eliminar al único administrador de la familia. Primero promová otro miembro como administrador.',
+          );
+        }
+      }
 
       const deleted = await this.prisma.user.delete({ where: { id } });
 
       await this.actionLogsService.markSuccess(log.id, undefined, {
-        deletedUser: {
-          id: deleted.id,
-          username: deleted.username,
-          name: deleted.name,
-          last_name: deleted.last_name,
-          email: deleted.email,
-        },
+        target_id: deleted.id,
+        id: deleted.id,
+        username: deleted.username,
+        name: deleted.name,
+        last_name: deleted.last_name,
+        email: deleted.email,
       });
 
       return deleted;
@@ -417,7 +455,9 @@ export class UserService {
       await this.actionLogsService.markError(log.id, error as Error);
       if (
         error instanceof NotFoundException ||
-        error instanceof BadRequestException
+        error instanceof BadRequestException ||
+        error instanceof ForbiddenException ||
+        error instanceof ConflictException
       )
         throw error;
       throw new InternalServerErrorException('Error al eliminar el usuario');
