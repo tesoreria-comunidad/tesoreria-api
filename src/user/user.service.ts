@@ -831,6 +831,14 @@ export class UserService {
         );
       }
 
+      // Validar movimiento secuencial: solo se permite avanzar o retroceder una rama
+      const ordenDiff = Math.abs(ramaDestino.orden - ramaOrigen.orden);
+      if (ordenDiff !== 1) {
+        throw new BadRequestException(
+          'El traspaso solo puede realizarse hacia la rama inmediatamente anterior o siguiente (diferencia de orden = 1)',
+        );
+      }
+
       const ahora = new Date();
 
       // Ejecutar transacción Prisma

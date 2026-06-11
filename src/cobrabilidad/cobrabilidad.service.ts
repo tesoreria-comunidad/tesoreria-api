@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
 import { DateTime } from 'luxon';
-import { Balance, Family } from '@prisma/client';
+import { Balance, Family, User } from '@prisma/client';
 import { CobrabilidadResumenDto } from './dto/cobrabilidad.dto';
 
 @Injectable()
@@ -41,12 +41,12 @@ export class CobrabilidadService {
       const valorCuotaBase = cuotaActiva?.value ?? 0;
 
       // --- 2️⃣ Determinar monto esperado por familia ---
-      const calcularCuotaEsperada = async (family): Promise<number> => {
-        const balance = await this.prisma.balance.findFirst({
-          where: {
-            id: family.id_balance,
-          },
-        });
+      // El balance ya viene incluido en la query de familias (include: { balance })
+      // por lo que NO se debe volver a consultar la base por cada familia.
+      const calcularCuotaEsperada = (
+        family: Family & { users: User[]; balance: Balance | null },
+      ): number => {
+        const balance = family.balance;
         const beneficiariosActivos = family.users.filter(
           (u) => u.is_active && !u.is_granted,
         ).length;
@@ -55,8 +55,8 @@ export class CobrabilidadService {
         if (!balance) return 0;
 
         // Si tiene cuota personalizada, se usa
-        if (balance?.is_custom_cuota) {
-          return family.balance.custom_cuota ?? 0;
+        if (balance.is_custom_cuota) {
+          return balance.custom_cuota ?? 0;
         }
 
         // Buscar valor por cantidad de hermanos
@@ -66,8 +66,8 @@ export class CobrabilidadService {
         const valor = especial ? especial.valor : valorCuotaBase;
 
         if (
-          balance?.previousValue &&
-          balance?.previousValue < 0 &&
+          balance.previousValue &&
+          balance.previousValue < 0 &&
           Math.abs(balance.previousValue) >= valor
         ) {
           return Math.abs(balance.previousValue) + valor;
@@ -79,7 +79,7 @@ export class CobrabilidadService {
       const totalEsperadoPorRama: Record<string, number> = {};
       for (const family of familias) {
         if (!family.manage_by) continue;
-        const monto = await calcularCuotaEsperada(family);
+        const monto = calcularCuotaEsperada(family);
         totalEsperadoPorRama[family.manage_by] =
           (totalEsperadoPorRama[family.manage_by] ?? 0) + monto;
       }

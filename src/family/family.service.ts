@@ -176,8 +176,8 @@ export class FamilyService {
       }
       return await this.prisma.family.findMany({
         where: { manage_by: id_rama },
-        include: { users: true }, // necesario para mostrar a las familias con sus usuarios
-      });  
+        include: { users: true, balance: true }, // balance incluido para evitar fetch adicional por familia en el cliente
+      });
     } catch (error) {
       console.error('Error al obtener las familias por rama: ', error);
       throw new InternalServerErrorException('Error al obtener las familias por rama');
