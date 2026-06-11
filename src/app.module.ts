@@ -22,6 +22,7 @@ import { FileModule } from './file/file.module';
 import { CobrabilidadModule } from './cobrabilidad/cobrabilidad.module';
 import { ActionLogsModule } from './action-logs/action-logs.module';
 import { MonitoringModule } from './monitoring/monitoring.module';
+import { AgentModule } from './agent/agent.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { MonitoringModule } from './monitoring/monitoring.module';
     CobrabilidadModule,
     ActionLogsModule,
     MonitoringModule,
+    AgentModule,
   ],
   controllers: [],
   providers: [],
