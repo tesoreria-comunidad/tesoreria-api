@@ -8,7 +8,6 @@ import {
   Param,
   UseGuards,
   BadRequestException,
-  NotFoundException,
   Query,
   HttpCode,
   HttpStatus,
@@ -162,20 +161,31 @@ export class UserController {
 
   @Delete(':id')
   @Roles('MASTER', 'DIRIGENTE')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Eliminación permanente de un usuario',
+    description:
+      'Borra de forma definitiva (hard delete) el registro de un usuario. ' +
+      'MASTER puede eliminar cualquier usuario. ' +
+      'DIRIGENTE solo puede eliminar usuarios de su propia rama. ' +
+      'No se puede eliminar al único administrador de una familia ni al propio actor.',
+  })
+  @ApiResponse({ status: 200, description: 'Usuario eliminado correctamente' })
+  @ApiResponse({ status: 400, description: 'El actor intenta borrarse a sí mismo' })
+  @ApiResponse({
+    status: 403,
+    description: 'Rol sin permisos o DIRIGENTE intentando borrar usuario de otra rama',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Usuario no encontrado',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'El usuario es el único administrador de su familia',
+  })
   async deleteUser(@Param('id') id: string, @Req() req: ExpressRequest) {
-    try {
-      const existingUser = await this.userService.getById(
-        id,
-        req,
-      );
-      if (!existingUser) {
-        throw new NotFoundException('Usuario no encontrado');
-      }
-
-      return await this.userService.delete(id, req);
-    } catch (error) {
-      throw error;
-    }
+    return await this.userService.delete(id, req);
   }
 
   @Post('bulk')

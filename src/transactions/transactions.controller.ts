@@ -57,7 +57,7 @@ export class TransactionsController {
   }
 
   @Post('/family-cuota')
-  @Roles('MASTER', 'DIRIGENTE', 'FAMILY', 'BENEFICIARIO')
+  @Roles('MASTER', 'DIRIGENTE', 'FAMILY')
   async createFamilyTransaction(
     @Body()
     dto: Omit<CreateTransactionDTO, 'direction' | 'category' | 'concept'>,

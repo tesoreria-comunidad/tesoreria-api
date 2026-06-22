@@ -7,9 +7,10 @@ import { UserModule } from 'src/user/user.module';
 import { BalanceModule } from 'src/balance/balance.module';
 import { PrismaService } from 'src/prisma.service';
 import { ServicesModule } from 'src/services/services.module';
+import { PaymentReceiptsModule } from 'src/payment-receipts/payment-receipts.module';
 
 @Module({
-  imports: [AuthModule, FamilyModule, UserModule, BalanceModule, ServicesModule],
+  imports: [AuthModule, FamilyModule, UserModule, BalanceModule, ServicesModule, PaymentReceiptsModule],
   controllers: [TransactionsController],
   providers: [TransactionsService, PrismaService],
 })

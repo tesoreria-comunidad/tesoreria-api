@@ -32,6 +32,34 @@ export class EmailService {
     return handlebars.compile(source)(context);
   }
 
+  async sendReceiptEmail(
+    to: string,
+    data: { familyName: string; receiptNumber: string; pdfBuffer: Buffer },
+  ): Promise<void> {
+    try {
+      await this.transporter.sendMail({
+        from: process.env.SMTP_FROM ?? process.env.SMTP_USER,
+        to,
+        subject: `Mi Pelicano — Comprobante de pago ${data.receiptNumber}`,
+        text: `Estimada familia ${data.familyName},\n\nAdjuntamos el comprobante de pago de cuota Nº ${data.receiptNumber}.\n\nGracias.\n${process.env.SCOUT_GROUP_NAME ?? 'Grupo Scout Mi Pelícano'}`,
+        attachments: [
+          {
+            filename: `${data.receiptNumber}.pdf`,
+            content: data.pdfBuffer,
+            contentType: 'application/pdf',
+          },
+        ],
+      });
+      this.logger.log(`Comprobante ${data.receiptNumber} enviado a: ${to}`);
+    } catch (error) {
+      this.logger.error(
+        `Error al enviar comprobante ${data.receiptNumber}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw error;
+    }
+  }
+
   async sendPasswordResetEmail(to: string, resetToken: string, name?: string): Promise<void> {
     const resetUrl = `${process.env.FRONTEND_URL ?? 'http://localhost:5173'}/reset-password?token=${resetToken}`;
 

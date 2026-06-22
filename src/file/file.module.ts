@@ -10,5 +10,6 @@ import { AuthModule } from 'src/auth/auth.module';
   imports: [ConfigModule, ActionLogsModule, UserModule, AuthModule],
   controllers: [FileController],
   providers: [FileService],
+  exports: [FileService],
 })
 export class FileModule {}

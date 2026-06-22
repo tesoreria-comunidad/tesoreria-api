@@ -1,14 +1,15 @@
 import {
   DeleteObjectCommand,
+  GetObjectCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v4 as uuid } from 'uuid';
 import { ActionLogsService } from 'src/action-logs/action-logs.service';
 import { ActionType } from '@prisma/client';
-// FILE_UPLOAD/FILE_DELETE were added to schema.prisma; now using typed ActionType values.
 import { Request as ExpressRequest } from 'express';
 import { AuthService } from 'src/auth/auth.service';
 
@@ -16,29 +17,37 @@ import { AuthService } from 'src/auth/auth.service';
 export class FileService {
   private s3: S3Client;
   private bucketName: string;
-  //   private readonly s3Client =
+
   constructor(private readonly configService: ConfigService, private actionLogsService: ActionLogsService, private authService: AuthService) {
     this.s3 = new S3Client({
-      region: process.env.AWS_REGION,
+      region: 'auto',
+      endpoint: this.configService.get('R2_ENDPOINT'),
       credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+        accessKeyId: this.configService.get<string>('R2_ACCESS_KEY_ID')!,
+        secretAccessKey: this.configService.get<string>('R2_SECRET_ACCESS_KEY')!,
       },
     });
-    this.bucketName = this.configService.get('AWS_BUCKET_NAME')!;
+    this.bucketName = this.configService.get('R2_BUCKET_NAME')!;
+  }
+
+  /**
+   * Upload a Buffer directly (used internally by PaymentReceiptsService).
+   * The file argument only needs fieldname, originalname, mimetype, buffer and size.
+   */
+  async uploadBuffer(file: Pick<Express.Multer.File, 'fieldname' | 'originalname' | 'mimetype' | 'buffer' | 'size'>, reqOrActor?: ExpressRequest | 'SYSTEM') {
+    return this.upload(file as Express.Multer.File, reqOrActor);
   }
 
   async upload(file: Express.Multer.File, reqOrActor?: ExpressRequest | 'SYSTEM') {
-    // Delegate actor resolution to ActionLogsService by passing the Request or 'SYSTEM'
     try {
-      const fileKey = `${Date.now()}-${uuid()}-${file.originalname}`;
+      const fileKey = `comprobantes/${Date.now()}-${uuid()}-${file.originalname}`;
 
       const { log } = await this.actionLogsService.start(ActionType.FILE_UPLOAD, reqOrActor ?? 'SYSTEM', {
         metadata: { originalName: file.originalname },
       });
 
       try {
-        const res = await this.s3.send(
+        await this.s3.send(
           new PutObjectCommand({
             Bucket: this.bucketName,
             ContentType: file.mimetype,
@@ -54,11 +63,15 @@ export class FileService {
         await this.actionLogsService.markError(log.id, error as Error);
         throw error;
       }
-      }
-    catch (error) {
+    } catch (error) {
       console.log('Error al subir el archivo', error);
       throw new Error('Error al subir el archivo');
     }
+  }
+
+  async getSignedUrl(fileKey: string, expiresInSeconds = 3600): Promise<string> {
+    const command = new GetObjectCommand({ Bucket: this.bucketName, Key: fileKey });
+    return getSignedUrl(this.s3, command, { expiresIn: expiresInSeconds });
   }
 
   async delete(fileName: string, reqOrActor?: ExpressRequest | 'SYSTEM') {
@@ -67,10 +80,9 @@ export class FileService {
         metadata: { fileName },
       });
       try {
-        const bucketName = this.bucketName;
         await this.s3.send(
           new DeleteObjectCommand({
-            Bucket: bucketName,
+            Bucket: this.bucketName,
             Key: fileName,
           }),
         );
@@ -83,8 +95,6 @@ export class FileService {
     } catch (error) {
       console.log('Error al eliminar el archivo', error);
       throw new Error('Error al eliminar el archivo');
-    } 
+    }
   }
 }
-
-// FileService
