@@ -7,10 +7,11 @@ const envZodModel = z
     PORT: z.string(),
     JWTKEY: z.string(),
     HASH_SALT: z.string(),
-    AWS_REGION: z.string(),
-    AWS_BUCKET_NAME: z.string(),
-    AWS_ACCESS_KEY_ID: z.string(),
-    AWS_SECRET_ACCESS_KEY: z.string(),
+    R2_ACCOUNT_ID: z.string(),
+    R2_BUCKET_NAME: z.string(),
+    R2_ACCESS_KEY_ID: z.string(),
+    R2_SECRET_ACCESS_KEY: z.string(),
+    R2_ENDPOINT: z.string().url(),
   })
   .refine((data) => data.DATABASE_URL !== data.PROD_DB, {
     message: '❌ DATABASE_URL y PROD_DB no pueden ser iguales',

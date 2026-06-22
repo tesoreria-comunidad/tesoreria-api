@@ -63,6 +63,7 @@ describe('CronJobsService', () => {
         updatedAt: new Date(),
         name: 'Familia Test',
         phone: '123456789',
+        email: null,
         manage_by: 'Admin',
         balance: {
           id: '1',

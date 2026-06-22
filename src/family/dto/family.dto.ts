@@ -73,6 +73,10 @@ export class CreateFamilyDto {
   @IsOptional()
   phone: string;
 
+  @IsEmail({}, { message: 'Debe proporcionar un email de familia válido' })
+  @IsOptional()
+  email?: string;
+
   @IsString()
   @IsNotEmpty()
   @IsUUID('4', { message: 'El manage_by debe ser un UUID válido' })
@@ -96,4 +100,8 @@ export class UpdateFamilyDto {
   @IsString()
   @IsNotEmpty()
   phone?: string;
+
+  @IsEmail({}, { message: 'Debe proporcionar un email de familia válido' })
+  @IsOptional()
+  email?: string;
 }

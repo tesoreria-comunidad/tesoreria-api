@@ -15,6 +15,7 @@ import { ActionLogsService } from 'src/action-logs/action-logs.service';
 import { ActionType, ActionTargetTable, BalanceChangeType } from '@prisma/client';
 import { Request as ExpressRequest } from 'express';
 import { AuthService } from 'src/auth/auth.service';
+import { PaymentReceiptsService } from 'src/payment-receipts/payment-receipts.service';
 
 @Injectable()
 export class TransactionsService {
@@ -23,6 +24,7 @@ export class TransactionsService {
     private roleFilterService: RoleFilterService,
     private actionLogsService: ActionLogsService,
     private authService: AuthService,
+    private paymentReceiptsService: PaymentReceiptsService,
   ) {}
   async create(
     data: CreateTransactionDTO,
@@ -139,7 +141,15 @@ export class TransactionsService {
           transactionAmount: transaction.amount,
         },
       );
-      return transaction;
+
+      // Generate payment receipt (non-blocking: failure does NOT roll back the payment)
+      const paymentReceipt = await this.paymentReceiptsService.generateAndSendReceipt(
+        transaction,
+        family,
+        reqOrActor,
+      );
+
+      return { transaction, paymentReceipt };
     } catch (error) {
       console.log('Error al crear la transacción familiar', error);
       await this.actionLogsService.markError(log.id, error as Error);

@@ -11,6 +11,6 @@ import { EmailService } from './email/email.service';
   imports: [PrismaModule, ServicesModule, ActionLogsModule],
   controllers: [AuthController],
   providers: [AuthService, JwtService, EmailService],
-  exports: [AuthService],
+  exports: [AuthService, EmailService],
 })
 export class AuthModule {}

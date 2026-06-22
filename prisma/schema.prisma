@@ -87,17 +87,19 @@ model Person {
 }
 
 model Family {
-  id           String         @id @default(uuid()) @db.Uuid
-  id_balance   String         @unique @db.Uuid
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  name         String
-  phone        String?
-  manage_by    String
-  balance      Balance        @relation(fields: [id_balance], references: [id])
-  payments     Payment[]
-  transactions Transactions[]
-  users        User[]
+  id              String           @id @default(uuid()) @db.Uuid
+  id_balance      String           @unique @db.Uuid
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  name            String
+  phone           String?
+  email           String?
+  manage_by       String
+  balance         Balance          @relation(fields: [id_balance], references: [id])
+  payments        Payment[]
+  transactions    Transactions[]
+  users           User[]
+  paymentReceipts PaymentReceipt[]
 }
 
 model Payment {
@@ -177,6 +179,20 @@ model Transactions {
   payment_method PaymentMethod
   attachment     String?
   family         Family?              @relation(fields: [id_family], references: [id])
+  paymentReceipt PaymentReceipt?
+}
+
+model PaymentReceipt {
+  id             String       @id @default(uuid()) @db.Uuid
+  id_transaction String       @unique @db.Uuid
+  id_family      String       @db.Uuid
+  receipt_number String       @unique
+  pdf_url        String
+  sent_to_email  String?
+  sent_at        DateTime?
+  createdAt      DateTime     @default(now())
+  transaction    Transactions @relation(fields: [id_transaction], references: [id])
+  family         Family       @relation(fields: [id_family], references: [id])
 }
 
 model ActionLog {
@@ -236,6 +252,9 @@ enum ActionType {
   BALANCE_UPDATE_FAMILY
   PASSWORD_RESET_REQUEST
   PASSWORD_RESET_SUCCESS
+  RECEIPT_CREATE
+  RECEIPT_EMAIL_SENT
+  RECEIPT_EMAIL_FAILED
 }
 
 enum BalanceChangeType {
@@ -259,6 +278,7 @@ enum ActionTargetTable {
   CPH
   BALANCE
   FOLDER
+  PAYMENT_RECEIPT
 }
 
 enum TransactionCategory {
